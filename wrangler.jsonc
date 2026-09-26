@@ -1,0 +1,30 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "ronda-local",
+  "main": "services/worker.mjs",
+  "compatibility_date": "2026-09-26",
+  "workers_dev": false,
+  "vars": { "PUBLIC_BASE_URL": "http://127.0.0.1:4173/", "REVISION": "local" },
+  "assets": {
+    "directory": "./dist/admin",
+    "binding": "ASSETS",
+    "run_worker_first": ["/api/*", "/health"],
+  },
+  "durable_objects": {
+    "bindings": [
+      { "name": "CATALOG", "class_name": "QuizCatalog" },
+      { "name": "ROOMS", "class_name": "QuizRoom" },
+    ],
+  },
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["QuizCatalog", "QuizRoom"] },
+  ],
+  "ratelimits": [
+    {
+      "name": "AUTH_RATE_LIMIT",
+      "namespace_id": "1001",
+      "simple": { "limit": 20, "period": 60 },
+    },
+  ],
+  "observability": { "enabled": false },
+}

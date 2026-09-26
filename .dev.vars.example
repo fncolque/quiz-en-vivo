@@ -1,0 +1,2 @@
+# Solo desarrollo. Copiar a .dev.vars. Nunca usar esta clave en Internet.
+MASTER_SECRET="ronda-local-development-only"

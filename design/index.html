@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Ronda — tres direcciones visuales</title>
+    <link rel="stylesheet" href="design.css" />
+    <script type="module" src="design.mjs"></script>
+  </head>
+  <body>
+    <header class="review-header">
+      <a href="#" class="review-wordmark">ronda<span>●</span></a
+      ><span>ESTUDIO DE IDENTIDAD / 01</span
+      ><span class="review-status">Propuestas para elegir</span>
+    </header>
+    <main>
+      <section class="intro">
+        <p class="eyebrow">UN ENCUENTRO. MUCHAS BUENAS PREGUNTAS.</p>
+        <h1>La misma ronda.<br /><em>Tres maneras de vivirla.</em></h1>
+        <p>
+          Un espacio para crear con calma, jugar juntos y conversar sobre lo que
+          aprendimos. Elegí una dirección y explorá cómo se siente en cada
+          pantalla.
+        </p>
+      </section>
+      <section class="directions" aria-label="Alternativas de diseño">
+        <button
+          class="direction estudio selected"
+          data-theme="estudio"
+          aria-pressed="true"
+        >
+          <span class="direction-number">A / ESTUDIO</span
+          ><span class="poster"
+            ><span class="poster-top"
+              >ronda<span class="tiny">en buena compañía.</span></span
+            ><span class="poster-title"
+              >Las ideas<br />dan vueltas<span class="coral-dot">.</span></span
+            ><span class="orbit" aria-hidden="true"
+              ><i></i><i></i><i></i><i></i></span
+            ><span class="poster-bottom"
+              >CLARIDAD PARA CREAR.<br />ENERGÍA PARA JUGAR. <b>↗</b></span
+            ></span
+          ><span class="direction-description"
+            ><strong>Cálida & expresiva</strong
+            ><span
+              >Hueso, tinta y coral. Tipografía con carácter y una escena de
+              juego oscura.</span
+            ><span class="choose">Explorar Estudio <b>↗</b></span></span
+          >
+        </button>
+        <button class="direction pista" data-theme="pista" aria-pressed="false">
+          <span class="direction-number">B / PISTA</span
+          ><span class="poster"
+            ><span class="poster-top"
+              >RONDA<span class="tiny">EN VIVO / EN EQUIPO</span></span
+            ><span class="poster-title"
+              >TU TURNO.<br />TU EQUIPO.<br />TU RONDA.</span
+            ><span class="track" aria-hidden="true"><i></i><i></i><i></i></span
+            ><span class="poster-bottom"
+              >LISTOS CUANDO<br />USTEDES LO ESTÉN. <b>↗</b></span
+            ></span
+          ><span class="direction-description"
+            ><strong>Deportiva & directa</strong
+            ><span
+              >Verde señal, carbón y números grandes. Ritmo de marcador y
+              controles precisos.</span
+            ><span class="choose">Explorar Pista <b>↗</b></span></span
+          >
+        </button>
+        <button class="direction salon" data-theme="salon" aria-pressed="false">
+          <span class="direction-number">C / SALÓN</span
+          ><span class="poster"
+            ><span class="poster-top"
+              >ronda<span class="tiny">El gusto de encontrarnos.</span></span
+            ><span class="poster-title"
+              >Una pregunta,<br /><em>y empieza<br />la conversación.</em></span
+            ><span class="salon-seal" aria-hidden="true">r.</span
+            ><span class="poster-bottom"
+              >CURIOSIDAD<br />COMPARTIDA. <b>↗</b></span
+            ></span
+          ><span class="direction-description"
+            ><strong>Editorial & cercana</strong
+            ><span
+              >Ciruela, papel y albaricoque. Letras de revista y un ambiente de
+              encuentro.</span
+            ><span class="choose">Explorar Salón <b>↗</b></span></span
+          >
+        </button>
+      </section>
+      <section
+        class="explorer"
+        id="explorer"
+        aria-label="Explorar la propuesta seleccionada"
+      >
+        <div class="explorer-title">
+          <div>
+            <p class="eyebrow" id="direction-label">DIRECCIÓN A / ESTUDIO</p>
+            <h2 id="direction-title">Todo en su lugar. Un poco de juego.</h2>
+          </div>
+          <span class="sample-badge">Datos de muestra · prototipo visual</span>
+        </div>
+        <nav class="view-switch" aria-label="Pantalla de muestra">
+          <button data-view="catalog" aria-pressed="true">01 · Crear</button
+          ><button data-view="projection" aria-pressed="false">
+            02 · Proyectar</button
+          ><button data-view="player" aria-pressed="false">
+            03 · Responder
+          </button>
+        </nav>
+        <div
+          id="preview"
+          class="preview theme-estudio"
+          aria-live="polite"
+        ></div>
+        <div class="design-notes">
+          <p id="theme-note"></p>
+          <p>
+            En las tres: controles grandes, letras y formas además del color,
+            foco visible y movimiento reducido. La contraseña protege el
+            catálogo y la conducción desde el servidor.
+          </p>
+        </div>
+      </section>
+      <footer class="review-footer">
+        <span>RONDA / NOMBRE DE TRABAJO</span>
+        <p>
+          Estas pantallas comparan el diseño. Las sesiones reales se están
+          construyendo en un recorrido local separado.
+        </p>
+        <span>SEPTIEMBRE 2026</span>
+      </footer>
+    </main>
+  </body>
+</html>

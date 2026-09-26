@@ -1,0 +1,22 @@
+{
+  "name": "ronda-quiz",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "build": "node tools/build.mjs",
+    "dev:api": "wrangler dev --ip 127.0.0.1 --port 8787",
+    "dev:public": "node tools/serve.mjs",
+    "test": "node --test tests/rules.test.mjs tests/excel.test.mjs",
+    "test:live": "node --test --test-concurrency=1 tests/live.test.mjs",
+    "test:load": "node tools/load-test.mjs",
+    "preview:design": "node tools/serve.mjs design 4174"
+  },
+  "devDependencies": {
+    "wrangler": "4.141.0",
+    "ws": "8.21.0"
+  }
+}
