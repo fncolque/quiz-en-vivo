@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { errorResponse } from "../services/security.mjs";
 import {
   seconds,
   score,
@@ -9,6 +10,15 @@ import {
   csv,
   validateQuiz,
 } from "../services/rules.mjs";
+test("el agotamiento de la cuota informa indisponibilidad y su reinicio", async () => {
+  const response = errorResponse(
+    new Error("Exceeded allowed rows read in Durable Objects free tier."),
+  );
+  assert.equal(response.status, 503);
+  const result = await response.json();
+  assert.equal(result.error.code, "STORAGE_QUOTA");
+  assert.match(result.error.message, /00:00 UTC/);
+});
 test("el tiempo es entero y el bono se normaliza por pregunta", () => {
   for (const s of [1, 15, 30, 60, 600]) assert.equal(seconds(s), s);
   for (const s of [0, -1, 1.5, 601, "15", "", null])

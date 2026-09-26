@@ -78,6 +78,9 @@ export function avatar(index = 0) {
 export function download(name, blob) {
   const url = URL.createObjectURL(blob);
   const link = el("a", { href: url, download: name });
+  link.hidden = true;
+  document.body.append(link);
   link.click();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }

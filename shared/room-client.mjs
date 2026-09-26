@@ -1,4 +1,12 @@
-export function connectRoom({ base, code, role, token, onState, onStatus }) {
+export function connectRoom({
+  base,
+  code,
+  role,
+  token,
+  onState,
+  onStatus,
+  onClosed,
+}) {
   let socket,
     timer,
     heartbeat,
@@ -34,6 +42,7 @@ export function connectRoom({ base, code, role, token, onState, onStatus }) {
             ? "La sala venció."
             : "Acceso interrumpido. Volvé a ingresar.",
         );
+        onClosed?.(event.code);
         return;
       }
       if (attempts >= 5) {

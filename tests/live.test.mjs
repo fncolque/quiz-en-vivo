@@ -288,6 +288,16 @@ test("respaldo revisado, restauración sin sobrescribir y detección de catálog
   );
   catalog.quizzes[0].versions[0].quiz.title = "Alteración";
   await api("/catalog/import", "POST", { catalog }, secret, 400);
+  const withGap = structuredClone(item);
+  withGap.versions[0].quiz.title = quiz.title;
+  withGap.versions[0].version = 2;
+  await api(
+    "/catalog/import",
+    "POST",
+    { catalog: { schemaVersion: 1, quizzes: [withGap] } },
+    secret,
+    400,
+  );
 });
 test("50 preguntas de texto máximo se publican y exportan sin un valor creciente de respuestas", async () => {
   const quiz = fixture(50);

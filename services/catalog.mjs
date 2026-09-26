@@ -116,12 +116,13 @@ export class QuizCatalog extends DurableObject {
             requireThat(
               Number.isInteger(v.version) &&
                 v.version > 0 &&
+                v.version <= q.versions.length &&
                 !versionNumbers.has(v.version) &&
                 Number.isInteger(v.sourceRevision) &&
                 v.sourceRevision > 0,
               400,
               "INVALID_BACKUP",
-              "Versiones de respaldo inválidas.",
+              "Las versiones del respaldo deben ser consecutivas desde 1.",
             );
             versionNumbers.add(v.version);
             const quiz = validateQuiz(v.quiz);

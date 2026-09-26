@@ -5,6 +5,9 @@ import { renderRoom, startClock } from "./shared/room-view.mjs";
 const app = document.querySelector("#app");
 const projection = location.pathname.endsWith("proyectar.html");
 const code = new URL(location.href).searchParams.get("room");
+window.addEventListener("pageshow", (event) => {
+  if (event.persisted) location.reload();
+});
 const key = `ronda:participant:${config.apiBaseUrl}:${code}`;
 document.querySelector("#admin-link")?.setAttribute("href", config.adminUrl);
 const error = el("div", { class: "error", role: "alert" });
@@ -153,9 +156,10 @@ function start(room, credential) {
         token: credential,
       });
       pendingChoice = undefined;
-      state = await api(config.apiBaseUrl, `/rooms/${room}/state`, {
+      const confirmed = await api(config.apiBaseUrl, `/rooms/${room}/state`, {
         token: credential,
       });
+      if (!state || confirmed.revision >= state.revision) state = confirmed;
     } catch (e) {
       error.textContent = e.message;
       if (!e.code)
@@ -187,6 +191,34 @@ function start(room, credential) {
     token: credential,
     onStatus: (text) => {
       status.textContent = text;
+    },
+    onClosed: (closeCode) => {
+      clock.stop();
+      retry.replaceChildren(
+        button(
+          closeCode === 4001 && !projection
+            ? "Recuperar mi acceso"
+            : "Volver a la entrada",
+          () => {
+            stop();
+            try {
+              localStorage.removeItem(
+                `ronda:participant:${config.apiBaseUrl}:${room}`,
+              );
+            } catch {}
+            if (projection) {
+              location.href = "./";
+              return;
+            }
+            error.textContent =
+              closeCode === 4001
+                ? "Tu acceso anterior fue revocado. Ingresá tu identificador y el código de recuperación que te dio quien conduce."
+                : "La sala venció. Ingresá el código de una nueva ronda.";
+            joinForm();
+          },
+          "secondary",
+        ),
+      );
     },
     onState: (next) => {
       if (state && next.revision < state.revision) return;

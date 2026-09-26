@@ -18,6 +18,21 @@ export function json(value, status = 200) {
   });
 }
 export function errorResponse(error) {
+  if (
+    /Exceeded allowed rows (read|written) in Durable Objects free tier/.test(
+      error.message || "",
+    )
+  )
+    return json(
+      {
+        error: {
+          code: "STORAGE_QUOTA",
+          message:
+            "El servicio alcanzó su cupo diario de lecturas o escrituras. Se restablece a las 00:00 UTC.",
+        },
+      },
+      503,
+    );
   return json(
     {
       error: {

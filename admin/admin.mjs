@@ -24,6 +24,7 @@ function page(...children) {
   clock = null;
   document.body.classList.remove("game");
   app.replaceChildren(...children.filter((x) => x !== null && x !== undefined));
+  window.scrollTo(0, 0);
 }
 function showError(target, error) {
   target.textContent = error.message;
@@ -666,6 +667,7 @@ function editor(existing) {
         "dialog",
         {
           class: "question-preview game",
+          tabindex: "-1",
           "aria-label": "Vista previa de la pregunta",
         },
         el(
@@ -679,6 +681,8 @@ function editor(existing) {
       dialog.addEventListener("close", () => dialog.remove());
       document.body.append(dialog);
       dialog.showModal();
+      dialog.focus();
+      dialog.scrollTop = 0;
     },
     "secondary",
   );
@@ -1098,10 +1102,13 @@ function importScreen() {
   let parsed,
     worker,
     timeout,
+    selection = 0,
     creationId = uid();
   const confirm = button("Guardar borrador", async () => {
     if (!parsed || parsed.errors.length) return;
     confirm.disabled = true;
+    title.disabled = true;
+    file.disabled = true;
     error.textContent = "";
     try {
       const quiz = {
@@ -1117,6 +1124,8 @@ function importScreen() {
     } catch (e) {
       showError(error, e);
       confirm.disabled = false;
+      title.disabled = false;
+      file.disabled = false;
     }
   });
   confirm.disabled = true;
@@ -1124,10 +1133,13 @@ function importScreen() {
     type: "file",
     accept: ".xlsx",
     onchange: async () => {
+      const currentSelection = ++selection;
       worker?.terminate();
       clearTimeout(timeout);
       parsed = null;
       confirm.disabled = true;
+      confirm.textContent = "Guardar borrador";
+      status.textContent = "";
       error.textContent = "";
       preview.replaceChildren();
       const chosen = file.files[0];
@@ -1137,6 +1149,7 @@ function importScreen() {
         return;
       }
       const bytes = await chosen.arrayBuffer();
+      if (currentSelection !== selection) return;
       status.textContent = "Revisando el archivo en este navegador…";
       creationId = uid();
       worker = new Worker(new URL("./excel-worker.mjs", import.meta.url), {
@@ -1153,7 +1166,7 @@ function importScreen() {
         worker.terminate();
         parsed = e.data;
         status.textContent = parsed.errors.length
-          ? `${parsed.errors.length} errores. No se guardó ninguna pregunta.`
+          ? `${parsed.errors.length} ${parsed.errors.length === 1 ? "error" : "errores"}. No se guardó ninguna pregunta.`
           : `${parsed.questions.length} preguntas listas para revisar.`;
         const notices = [...parsed.errors, ...parsed.warnings];
         preview.replaceChildren(

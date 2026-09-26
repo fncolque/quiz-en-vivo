@@ -2,6 +2,8 @@
 
 Cuestionarios en vivo para pensar en compañía. Un catálogo compartido permite crear o importar preguntas, publicar versiones y conducir sesiones de hasta 120 participantes.
 
+**Estado al 26/09/2026, 18:28 de Argentina:** la aplicación está publicada, pero el servicio de datos está temporalmente bloqueado por el cupo diario de lecturas de Cloudflare, agotado durante la primera prueba de carga. La causa de las lecturas excesivas se corrigió y la segunda prueba completó 40 minutos. El cupo se restablece a las 00:00 UTC del 27/09 (21:00 de Argentina del 26/09). Falta comprobar el catálogo y la conservación de resultados después de ese reinicio; no se considera lista para una actividad hasta completar esa comprobación.
+
 - Sitio público: https://fncolque.github.io/quiz-en-vivo/
 - Creación y conducción: https://ronda-quiz-en-vivo.n-lisis-de--atos.workers.dev/
 - Repositorio: https://github.com/fncolque/quiz-en-vivo
@@ -15,6 +17,8 @@ Cuestionarios en vivo para pensar en compañía. Un catálogo compartido permite
 4. Elegí la versión y los tiempos; cada pregunta admite entre 1 y 600 segundos. El valor inicial es 15 segundos. Creá la sala y compartí su enlace o código.
 5. Iniciá la lectura. Las opciones y el reloj aparecen al pulsar **Mostrar opciones**. La pregunta cierra cuando responde todo el grupo o vence el plazo del servidor. El avance es manual.
 6. Finalizá y descargá clasificación, podio o detalle. Los resultados vencen a las 24 horas de finalizar; una sala sin finalizar vence a las 24 horas de su creación.
+
+Para empezar, el catálogo incluye **Ejemplo — primeras tres preguntas**, publicado como versión 1. Podés duplicarlo para preparar tu propio contenido. Las salas creadas durante la comprobación son sintéticas y sus resultados vencerán normalmente.
 
 El identificador de cada participante se trata como texto, incluidos ceros iniciales. La pantalla del grupo muestra personajes y alias. El mismo navegador conserva la credencial de regreso; si se pierde, quien conduce puede generar una recuperación de un solo uso, válida diez minutos. Esto revoca el acceso anterior.
 
@@ -105,5 +109,7 @@ Los CSV separan `correcta`, `incorrecta`, `sin_respuesta` y `no_presentada`. Inc
 `npm run test:load` exige `TEST_BASE_URL` (origen del Worker), `TEST_MASTER_SECRET` y `PUBLIC_BASE_URL` en el entorno. Crea una sala sintética con 120 participantes y 15 preguntas, mantiene conexiones durante al menos 40 minutos, representa preflight y heartbeat, provoca reconexiones, duplica respuestas y concilia CSV con el estado final. Archiva su cuestionario al terminar correctamente y deja los resultados vencer normalmente. Guarda el informe en `artifacts/`; nunca lo presenta como una prueba de 120 teléfonos reales.
 
 Antes de una actividad revisá en Cloudflare el uso diario de **toda la cuenta**, incluido el proyecto anterior: solicitudes, duración, lecturas, escrituras y almacenamiento. No hay un indicador automático de cupo disponible en esta aplicación. Las métricas pueden aparecer con demora. Los valores históricos del kit no prueban el consumo de esta instalación. Consultá los [límites y precios de Durable Objects](https://developers.cloudflare.com/durable-objects/platform/pricing/); no se activó un plan pago para este proyecto.
+
+La lectura de suscripciones de la cuenta devolvió 403. El runtime confirmó el límite Free al rechazar operaciones con `Exceeded allowed rows read in Durable Objects free tier.` El presupuesto propuesto en el kit debe reemplazarse por la medición de esta instalación registrada en [VALIDACION.md](VALIDACION.md); una prueba funcional exitosa no certifica cupo disponible ni facturación.
 
 La contraseña es común a los creadores: no hay cuentas individuales, permisos por cuestionario ni recuperación por correo. Quien la recibe obtiene acceso al catálogo y los resultados identificados. Distribuí la contraseña solo a quienes deban conducir sesiones; los participantes usan únicamente el enlace o código.
