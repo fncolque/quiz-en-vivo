@@ -12,7 +12,11 @@ export function renderRoom(
     el(
       "div",
       { class: "room-meta" },
-      el("span", {}, `${state.title} · ${state.version ? `v${state.version}` : "Vista previa"}`),
+      el(
+        "span",
+        {},
+        `${state.title} · ${state.version ? `v${state.version}` : "Vista previa"}`,
+      ),
       el("span", { class: "room-code" }, `Sala ${state.code}`),
     ),
   );

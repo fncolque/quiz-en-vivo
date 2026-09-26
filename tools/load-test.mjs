@@ -172,6 +172,8 @@ try {
   }, 25000);
   state = await request(`${roomPath}/state`);
   const begin = Date.now();
+  report.playStartedAt = new Date(begin).toISOString();
+  console.log(`Sala ${room.code}: 120 participantes y 122 conexiones. Inicio ${report.playStartedAt}.`);
   async function command(action) {
     state = await request(`${roomPath}/commands`, "POST", {
       requestId: uid(),

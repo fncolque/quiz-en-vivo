@@ -26,15 +26,18 @@ Las sumas históricas del kit coinciden: 10.792 solicitudes Worker, 11.806 invoc
 | Comando / recorrido | Resultado observado |
 | --- | --- |
 | `npm test` | 7/7: límites, puntajes, identidades, empates, CSV y lectura/errores de Excel. |
-| `npm run test:live` | 7/7 contra SQLite real en workerd, 11,3 s en la última ejecución previa al despliegue. |
+| `npm run test:live` | 7/7 contra SQLite real en workerd; 20,3 s al ampliar la prueba a 120 sockets de participantes. |
 | `npm run build` | Genera dos salidas independientes; la galería queda excluida de Pages. |
 | `npx wrangler deploy --config wrangler.production.jsonc --dry-run --outdir artifacts/worker-dry-run` | Correcto: bindings independientes, 58,83 KiB de Worker antes de compresión, 20 archivos de panel. |
 | Navegador local | Importación real del XLSX, revisión de tres preguntas, publicación, creación de sala, lectura, respuesta, cierre, recarga del participante, finalización y proyección pública. |
-| `npm run test:load` contra el Worker publicado | En ejecución; se registrará el informe final antes de marcar esta comprobación como aprobada. |
+| Primera ejecución de `npm run test:load` | Interrumpida: las respuestas funcionaban, pero la medición de la cuenta alcanzó 11.919.038 filas leídas. Se conservó el informe fallido local. |
+| Repetición completa de `npm run test:load` | Pendiente del resultado de la versión corregida. |
 
 La integración comprueba 120 ingresos simultáneos, rechazo del 121, respuesta persistida antes de confirmarla, duplicado idéntico admitido y cambio rechazado, cierre por última respuesta y plazo, privacidad antes del cierre, conflicto de edición, versiones inmutables, restauración sin sobrescribir, revocación HTTP y WebSocket al recuperar identidad, y recorrido de 50 preguntas con texto máximo. Los CSV distinguen omisiones y preguntas no presentadas.
 
 La construcción siguió incrementos de extremo a extremo. Primero falló el acceso al catálogo por ausencia del endpoint (404 en lugar de 401), después pasó con autorización real. El recorrido de sala falló inicialmente en la creación del cuestionario y pasó tras implementar persistencia. La recuperación se corrigió a partir de una prueba que comprobaba el cierre efectivo del socket anterior. Las comprobaciones no se sustituyeron por mocks de respuestas.
+
+La primera carga remota reveló una amplificación de lecturas: se volvía a consultar el estado para cada socket después de cada respuesta. Se corrigió compartiendo una sola lectura por difusión y reutilizando los totales cerrados hasta el siguiente paso de la sala. Los totales siempre se reconstruyen desde SQLite tras hibernar; las respuestas y los cierres siguen persistidos. La prueba de integración comprueba ahora los 120 sockets, incluyendo que el puntaje de la pregunta actual no se revela antes de cerrar. La primera sala sintética se finalizó y su cuestionario se archivó, conservando los resultados durante su retención normal.
 
 ## Límites y verificaciones pendientes
 

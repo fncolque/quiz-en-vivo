@@ -46,7 +46,7 @@ test("el catálogo rechaza a quien no presenta la contraseña", async () => {
   assert.equal(response.status, 401);
   assert.equal(response.headers.get("cache-control"), "no-store");
 });
-test("120 participantes, lectura pública, respuesta privada y cierre atómico en ráfaga", async () => {
+test("120 participantes, lectura pública, respuesta privada y cierre atómico en ráfaga", async (t) => {
   const quiz = fixture(1);
   const created = await api("/quizzes", "POST", { requestId: uid(), quiz });
   const version = await api(`/quizzes/${created.id}/publish`, "POST", {
@@ -62,6 +62,34 @@ test("120 participantes, lectura pública, respuesta privada y cierre atómico e
   const players = await Promise.all(
     Array.from({ length: 120 }, (_, i) =>
       api(`${route}/join`, "POST", { identifier: `load-${i}` }, null),
+    ),
+  );
+  const livePlayers = await Promise.all(
+    players.map(
+      (p) =>
+        new Promise((resolve, reject) => {
+          const ws = new WebSocket(
+            `${base.replace("http", "ws")}/api${route}/socket`,
+            { origin: "http://127.0.0.1:4173" },
+          );
+          t.after(() => ws.terminate());
+          ws.once("error", reject);
+          ws.once("open", () =>
+            ws.send(
+              JSON.stringify({
+                type: "auth",
+                role: "participant",
+                token: p.token,
+              }),
+            ),
+          );
+          const states = [];
+          ws.on("message", (raw) => {
+            const message = JSON.parse(raw.toString());
+            states.push(message.state);
+            resolve({ ws, states });
+          });
+        }),
     ),
   );
   assert.equal(new Set(players.map((p) => p.alias)).size, 120);
@@ -102,6 +130,20 @@ test("120 participantes, lectura pública, respuesta privada y cierre atómico e
   assert.equal(state.answered, 120);
   assert.equal(JSON.stringify(messages).includes("load-"), false);
   assert.ok(messages.some((m) => m.state?.phase === "answering"));
+  for (const player of livePlayers) {
+    assert.ok(
+      player.states.some(
+        (s) => s.phase === "feedback" && s.self.points >= 1000,
+      ),
+    );
+    assert.ok(
+      player.states
+        .filter((s) => s.phase === "answering")
+        .every((s) => s.self.points === 0),
+    );
+    assert.equal(JSON.stringify(player.states).includes("token_hash"), false);
+    assert.equal(JSON.stringify(player.states).includes("load-"), false);
+  }
   socket.close();
   await api(`${route}/commands`, "POST", {
     requestId: uid(),

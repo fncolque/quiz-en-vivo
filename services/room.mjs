@@ -197,10 +197,39 @@ export class QuizRoom extends DurableObject {
       .sort((a, b) => b.incorrect - a.incorrect || a.position - b.position);
     return { ranking, summary };
   }
-  state(role = "public", hash = "") {
+  snapshot() {
     const room = this.metadata();
     const q = this.question(room);
-    const players = this.rows("SELECT id,identifier,alias,avatar FROM players");
+    return {
+      room,
+      q,
+      players: this.rows(
+        "SELECT id,identifier,alias,avatar,token_hash FROM players",
+      ),
+      answers: q
+        ? this.rows(
+            "SELECT player_id,option_id AS optionId,received_at AS receivedAt FROM answers WHERE question_id=?",
+            q.id,
+          )
+        : [],
+      summary: room.phase === "finished" ? this.summary(room) : null,
+    };
+  }
+  closedScores(room) {
+    // Scores become visible only when a question closes. This cache can always
+    // be reconstructed from SQLite after hibernation; it never accepts writes.
+    if (this.scoreStep !== room.step) {
+      this.scoreTotals = new Map(
+        this.rows(
+          "SELECT a.player_id,SUM(a.points) AS points FROM answers a JOIN questions q ON q.id=a.question_id WHERE q.closed_at IS NOT NULL GROUP BY a.player_id",
+        ).map((a) => [a.player_id, a.points]),
+      );
+      this.scoreStep = room.step;
+    }
+    return this.scoreTotals;
+  }
+  state(role = "public", hash = "", snapshot = this.snapshot()) {
+    const { room, q, players, answers } = snapshot;
     const state = {
       code: room.code,
       title: room.title,
@@ -221,7 +250,14 @@ export class QuizRoom extends DurableObject {
       closeReason: q?.close_reason || null,
     };
     state.players = players.map((p) =>
-      role === "host" ? p : { alias: p.alias, avatar: p.avatar },
+      role === "host"
+        ? {
+            id: p.id,
+            identifier: p.identifier,
+            alias: p.alias,
+            avatar: p.avatar,
+          }
+        : { alias: p.alias, avatar: p.avatar },
     );
     if (q && room.phase !== "lobby") {
       state.question = {
@@ -239,36 +275,30 @@ export class QuizRoom extends DurableObject {
           correctOptionId: q.correctOptionId,
           explanation: q.explanation,
         });
-        state.distribution = this.rows(
-          "SELECT option_id AS optionId,COUNT(*) AS count FROM answers WHERE question_id=? GROUP BY option_id",
-          q.id,
-        );
+        state.distribution = q.options.map((option) => ({
+          optionId: option.id,
+          count: answers.filter((a) => a.optionId === option.id).length,
+        }));
       }
-      state.answered = this.row(
-        "SELECT COUNT(*) AS count FROM answers WHERE question_id=?",
-        q.id,
-      ).count;
+      state.answered = answers.length;
     }
     if (role === "participant") {
-      const p = this.player(hash);
-      const a = q
-        ? this.row(
-            "SELECT option_id AS optionId,received_at AS receivedAt FROM answers WHERE question_id=? AND player_id=?",
-            q.id,
-            p.id,
-          )
-        : null;
+      const p = players.find((player) => player.token_hash === hash);
+      requireThat(
+        p,
+        401,
+        "PLAYER_AUTH",
+        "No se pudo recuperar tu acceso. Pedí ayuda a quien conduce.",
+      );
+      const a = answers.find((answer) => answer.player_id === p.id);
       state.self = {
         alias: p.alias,
         avatar: p.avatar,
-        answer: a || null,
-        points: this.row(
-          "SELECT COALESCE(SUM(a.points),0) AS score FROM answers a JOIN questions q ON q.id=a.question_id WHERE a.player_id=? AND q.closed_at IS NOT NULL",
-          p.id,
-        ).score,
+        answer: a ? { optionId: a.optionId, receivedAt: a.receivedAt } : null,
+        points: this.closedScores(room).get(p.id) || 0,
       };
     }
-    if (room.phase === "finished") Object.assign(state, this.summary(room));
+    if (room.phase === "finished") Object.assign(state, snapshot.summary);
     return state;
   }
   closeSocket(socket, code, reason) {
@@ -279,22 +309,21 @@ export class QuizRoom extends DurableObject {
     } catch {}
   }
   async broadcast() {
-    const publicState = this.state();
+    const masterHash = await digest(this.env.MASTER_SECRET || "");
+    const snapshot = this.snapshot();
+    const publicState = this.state("public", "", snapshot);
     for (const socket of this.ctx.getWebSockets()) {
       const auth = socket.deserializeAttachment();
       if (!auth?.authenticated) continue;
       try {
-        if (
-          auth.role === "host" &&
-          auth.masterHash !== (await digest(this.env.MASTER_SECRET || ""))
-        ) {
+        if (auth.role === "host" && auth.masterHash !== masterHash) {
           this.closeSocket(socket, 4001, "Volvé a ingresar");
           continue;
         }
         const state =
           auth.role === "public"
             ? publicState
-            : this.state(auth.role, auth.tokenHash);
+            : this.state(auth.role, auth.tokenHash, snapshot);
         socket.send(JSON.stringify({ type: "state", state }));
       } catch {
         this.closeSocket(socket, 4001, "Acceso finalizado");
@@ -431,6 +460,7 @@ export class QuizRoom extends DurableObject {
               ),
             );
           });
+        this.scoreStep = undefined;
         await this.tick();
         await this.schedule();
         return json({ code: data.code });
