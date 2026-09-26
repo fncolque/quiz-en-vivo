@@ -98,6 +98,31 @@ Validación humana de esta opción, pendiente:
 4. ¿Podés relacionar nombre elegido, nombre en clave e identificador en los tres CSV?
 5. ¿La recuperación conserva los dos nombres y el puntaje sin pedir que se cambien?
 
+### Ampliación: QR e ingreso directo
+
+El panel incorpora **Mostrar QR de esta sala** y descarga SVG. Usa exactamente el enlace público de participantes, con `jugar.html?room=...`; se genera localmente con qrcode-generator 2.0.4, servido desde el propio panel y cargado solo al abrir el QR. El fondo del diálogo oculta el panel al proyectarlo. El código conserva fondo blanco, módulos negros y un margen de cuatro módulos; no contiene contraseñas, identificadores ni credenciales.
+
+Un enlace con código válido de seis dígitos ahora abre directamente **Entrá a la ronda**, con nombre elegido e identificador. No muestra la portada ni un campo editable de código. La portada conserva el ingreso manual y un enlace incompleto permite corregir el código. La recuperación mantiene la sala de destino y no exige volver a escribir el nombre. Si vence un acceso ya abierto, **Volver a la entrada** lleva a la portada para elegir otra sala. No se modificaron endpoints, reglas de admisión, esquemas ni almacenamiento.
+
+- Pruebas mediante `cua_repl`, antes de implementar: la aserción de ausencia de **Código de sala** falló (`1 !== 0`) y la presencia de **Mostrar QR de esta sala** falló (`0 !== 1`). Después pasaron ambas, además de la ausencia de la portada y la presencia de nombre e identificador.
+- Navegador local: enlace directo a `203936`, ingreso como **Mar de prueba**, recarga conservando una sola identidad, revocación y recuperación desde el mismo formulario sin pedir el código de sala. Se comprobó volver a la portada y corregir un enlace de tres dígitos. Escape cierra el QR, elimina el diálogo y devuelve el foco al botón.
+- Las capturas reales del QR en escritorio y móvil se decodificaron con jsQR 1.4.0, independiente del generador: ambas devolvieron exactamente `http://127.0.0.1:4173/jugar.html?room=203936`. El decodificador se usó únicamente en artefactos locales, sin añadirlo al producto. Evidencia: `artifacts/qr-decode.json`.
+- La descarga creó `ronda-203936-qr.svg` en Descargas, con 15.710 bytes idénticos a la imagen del diálogo. El navegador integrado no emitió el evento de descarga, pero el archivo guardado se comprobó directamente. Evidencia: `artifacts/qr-download.json`.
+- Revisión visual con viewport de 390 × 844: formulario y QR legibles, sin desbordamiento horizontal; imagen, enlace, descarga y cierre disponibles. Capturas: `artifacts/screenshots/qr-ingreso-390.png` y `qr-modal-390.png`.
+- `npm test`: 8/8; `npm run build`, `node --check site/public.mjs`, `node --check admin/admin.mjs` y `git diff --check`: correctos. Las pruebas de navegador usan el servidor local real, sin respuestas simuladas. No se repitió la carga remota.
+
+Queda pendiente escanear con una cámara de teléfono físico y completar el recorrido publicado cuando se restablezca la cuota de datos. Una decodificación de imagen no demuestra enfoque, iluminación o distancia de proyección reales.
+
+`npx wrangler deploy --config wrangler.production.jsonc --dry-run` y el despliegue real finalizaron correctamente: Worker `863bbb98-7dc2-4faf-8c0b-bca5b783f763`. A las 23:07 UTC, `/health` confirmó la versión y los cuatro archivos nuevos o modificados del panel coincidieron con la construcción local. El catálogo autenticado continuó en `503 STORAGE_QUOTA`. Evidencia: `artifacts/qr-deployment.json`. La captura final `artifacts/screenshots/qr-modal-final.png` comprueba el fondo opaco que oculta la administración.
+
+Validación humana del acceso por QR:
+
+1. ¿Encontrás el botón de QR después de crear la sala?
+2. ¿El teléfono lee el QR desde la distancia a la que estará el grupo?
+3. ¿El escaneo abre la sala indicada y pide solo nombre e identificador?
+4. ¿La imagen descargada sigue siendo legible al compartirla o proyectarla?
+5. ¿Volver al enlace conserva tu acceso y permite recuperar la misma identidad cuando corresponde?
+
 ### Recorridos previos
 
 Se comprobaron anchos efectivos de 390, 768, 1280 y 1920 píxeles. La entrada, lectura y respuesta móviles, el editor y la proyección no presentaron desbordamiento horizontal. La vista previa local con 800 caracteres de pregunta y 2000 de explicación empieza arriba, permite desplazamiento y se cierra con Escape. La navegación entre pantallas vuelve al inicio.

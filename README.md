@@ -20,6 +20,8 @@ Cuestionarios en vivo para pensar en compañía. Un catálogo compartido permite
 
 Para empezar, el catálogo incluye **Ejemplo — primeras tres preguntas**, publicado como versión 1. Podés duplicarlo para preparar tu propio contenido. Las salas creadas durante la comprobación son sintéticas y sus resultados vencerán normalmente.
 
+En el panel de la sala, **Mostrar QR de esta sala** permite proyectar el código o descargarlo como SVG. El QR y **Copiar enlace de participantes** llevan al mismo destino: el formulario de esa sala, que pide nombre elegido e identificador sin pasar por la portada ni pedir el número de sala. El QR se genera en el navegador y contiene solo el enlace público, sin contraseña ni credenciales. Compartilo antes de iniciar para admitir participantes nuevos; quien ya ingresó puede volver con su acceso. Desde la portada se mantiene el ingreso manual por código.
+
 Al ingresar, cada participante escribe un **nombre elegido** (1–64 caracteres visibles) y su **identificador**, que se trata como texto, incluidos ceros iniciales. El identificador nunca se muestra al grupo. Cada persona recibe además un personaje y un nombre en clave sorteados sin repeticiones dentro de la sala. Los nombres elegidos pueden repetirse; la identidad se conserva mediante el identificador y la credencial de acceso.
 
 La opción de la sala se aplica a la lista de participantes, la identidad durante el juego, el podio y la clasificación. En modo **Nombres en clave**, el servidor no envía los nombres elegidos a los clientes públicos o participantes. Quienes tienen la contraseña de creadores pueden consultar ambos y descargarlos en los resultados.

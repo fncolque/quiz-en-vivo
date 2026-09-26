@@ -925,6 +925,59 @@ async function host(code) {
     `proyectar.html?room=${code}`,
     config.publicBaseUrl,
   ).href;
+  async function showQr() {
+    try {
+      const { qrcode } = await import("./vendor/qrcode.mjs");
+      const qr = qrcode(0, "M");
+      qr.addData(playerUrl);
+      qr.make();
+      const svg = qr.createSvgTag({ cellSize: 8 });
+      const dialog = el(
+        "dialog",
+        { class: "room-qr", "aria-labelledby": "room-qr-title" },
+        el("p", { class: "eyebrow" }, `SALA ${code}`),
+        el("h2", { id: "room-qr-title" }, "Escaneá y sumate."),
+        el("p", { class: "qr-quiz-title" }, state.title),
+        el("img", {
+          class: "qr-image",
+          src: `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`,
+          alt: `QR para ingresar a la sala ${code}`,
+        }),
+        el("p", {}, "El enlace abre esta sala y pide tu nombre e identificador."),
+        state.phase !== "lobby"
+          ? el(
+              "p",
+              { class: "notice" },
+              "Esta sala ya cerró el ingreso de participantes nuevos. Quienes ya ingresaron pueden volver a su acceso.",
+            )
+          : null,
+        el(
+          "a",
+          { href: playerUrl, target: "_blank", rel: "noopener", class: "qr-link" },
+          "Abrir entrada de participantes ↗",
+        ),
+        el(
+          "div",
+          { class: "actions" },
+          button("Descargar QR", () =>
+            download(
+              `ronda-${code}-qr.svg`,
+              new Blob([svg], { type: "image/svg+xml" }),
+            ),
+          ),
+          button("Cerrar", () => dialog.close(), "secondary"),
+        ),
+      );
+      dialog.addEventListener("close", () => dialog.remove(), { once: true });
+      document.body.append(dialog);
+      dialog.showModal();
+    } catch {
+      showError(
+        error,
+        new Error("No se pudo generar el QR. Podés usar el enlace de participantes o volver a intentarlo."),
+      );
+    }
+  }
   async function command(action) {
     const body = pendingCommand || {
       requestId: uid(),
@@ -1029,6 +1082,7 @@ async function host(code) {
           },
           "secondary small",
         ),
+        button("Mostrar QR de esta sala", showQr, "secondary small"),
       ),
       el(
         "p",

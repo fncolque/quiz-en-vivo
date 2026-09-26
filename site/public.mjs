@@ -19,18 +19,20 @@ try {
 } catch {
   /* Joining still works if storage is unavailable. */
 }
-function joinForm() {
+function joinForm(roomCode = /^\d{6}$/.test(code || "") ? code : null) {
   document.body.classList.remove("game", "mobile-player");
-  const inputCode = el("input", {
-    name: "code",
-    inputmode: "numeric",
-    pattern: "[0-9]{6}",
-    maxlength: "6",
-    autocomplete: "off",
-    placeholder: "000000",
-    required: true,
-    value: code || "",
-  });
+  const inputCode = roomCode
+    ? null
+    : el("input", {
+        name: "code",
+        inputmode: "numeric",
+        pattern: "[0-9]{6}",
+        maxlength: "6",
+        autocomplete: "off",
+        placeholder: "000000",
+        required: true,
+        value: code || "",
+      });
   const inputId = el("input", {
     name: "identifier",
     autocomplete: "off",
@@ -66,7 +68,7 @@ function joinForm() {
         event.preventDefault();
         submit.disabled = true;
         error.textContent = "";
-        const room = inputCode.value.trim();
+        const room = roomCode || inputCode.value.trim();
         try {
           const joined = await api(config.apiBaseUrl, `/rooms/${room}/join`, {
             method: "POST",
@@ -96,8 +98,15 @@ function joinForm() {
         }
       },
     },
-    el("h2", {}, "Tu lugar está acá."),
-    field("Código de sala", inputCode),
+    roomCode ? el("p", { class: "eyebrow" }, `SALA ${roomCode}`) : null,
+    el(
+      roomCode ? "h1" : "h2",
+      {},
+      roomCode ? "Entrá a la ronda." : "Tu lugar está acá.",
+    ),
+    roomCode
+      ? el("p", { class: "muted" }, "Completá tus datos para sumarte.")
+      : field("Código de sala", inputCode),
     field(
       "Nombre elegido",
       inputName,
@@ -125,7 +134,14 @@ function joinForm() {
       { class: "muted" },
       "Sin cuenta personal. Al entrar vas a recibir un personaje propio.",
     ),
+    roomCode
+      ? el("a", { href: "./", class: "other-room" }, "Entrar a otra sala")
+      : null,
   );
+  if (roomCode) {
+    app.replaceChildren(el("section", { class: "direct-join" }, form));
+    return;
+  }
   app.replaceChildren(
     el(
       "div",
@@ -222,15 +238,13 @@ function start(room, credential) {
                 `ronda:participant:${config.apiBaseUrl}:${room}`,
               );
             } catch {}
-            if (projection) {
+            if (projection || closeCode === 4004) {
               location.href = "./";
               return;
             }
             error.textContent =
-              closeCode === 4001
-                ? "Tu acceso anterior fue revocado. Ingresá tu identificador y el código de recuperación que te dio quien conduce."
-                : "La sala venció. Ingresá el código de una nueva ronda.";
-            joinForm();
+              "Tu acceso anterior fue revocado. Ingresá tu identificador y el código de recuperación que te dio quien conduce.";
+            joinForm(room);
           },
           "secondary",
         ),
