@@ -14,13 +14,17 @@ Cuestionarios en vivo para pensar en compañía. Un catálogo compartido permite
 1. Entrá a **Crear y conducir** con la contraseña de creadores. Quienes tienen esa contraseña comparten el catálogo y pueden descargar resultados identificados.
 2. Creá un cuestionario o importá la plantilla Excel. La importación ocurre en tu navegador; revisar y confirmar crea un borrador nuevo.
 3. Guardá, revisá la vista previa y pulsá **Publicar versión**. Editar después el borrador no modifica una versión ni una sesión existente.
-4. Elegí la versión y los tiempos; cada pregunta admite entre 1 y 600 segundos. El valor inicial es 15 segundos. Creá la sala y compartí su enlace o código.
+4. Elegí la versión, los tiempos y **Mostrar participantes como**: **Nombres en clave** (opción inicial) o **Nombres elegidos**. La elección queda fija para esa sala. Cada pregunta admite entre 1 y 600 segundos; el valor inicial es 15 segundos. Creá la sala y compartí su enlace o código.
 5. Iniciá la lectura. Las opciones y el reloj aparecen al pulsar **Mostrar opciones**. La pregunta cierra cuando responde todo el grupo o vence el plazo del servidor. El avance es manual.
 6. Finalizá y descargá clasificación, podio o detalle. Los resultados vencen a las 24 horas de finalizar; una sala sin finalizar vence a las 24 horas de su creación.
 
 Para empezar, el catálogo incluye **Ejemplo — primeras tres preguntas**, publicado como versión 1. Podés duplicarlo para preparar tu propio contenido. Las salas creadas durante la comprobación son sintéticas y sus resultados vencerán normalmente.
 
-El identificador de cada participante se trata como texto, incluidos ceros iniciales. La pantalla del grupo muestra personajes y alias. El mismo navegador conserva la credencial de regreso; si se pierde, quien conduce puede generar una recuperación de un solo uso, válida diez minutos. Esto revoca el acceso anterior.
+Al ingresar, cada participante escribe un **nombre elegido** (1–64 caracteres visibles) y su **identificador**, que se trata como texto, incluidos ceros iniciales. El identificador nunca se muestra al grupo. Cada persona recibe además un personaje y un nombre en clave sorteados sin repeticiones dentro de la sala. Los nombres elegidos pueden repetirse; la identidad se conserva mediante el identificador y la credencial de acceso.
+
+La opción de la sala se aplica a la lista de participantes, la identidad durante el juego, el podio y la clasificación. En modo **Nombres en clave**, el servidor no envía los nombres elegidos a los clientes públicos o participantes. Quienes tienen la contraseña de creadores pueden consultar ambos y descargarlos en los resultados.
+
+El mismo navegador conserva la credencial de regreso; si se pierde, quien conduce puede generar una recuperación de un solo uso, válida diez minutos. Esto revoca el acceso anterior y conserva nombre elegido, nombre en clave y puntaje. En el formulario de recuperación no hace falta volver a escribir el nombre.
 
 Las respuestas correctas reciben 1000 puntos más un bono de hasta 250 proporcional al tiempo restante de **esa pregunta**. Un error o una omisión suma cero. Los empates comparten puesto: 1, 1, 3. El servidor confirma una respuesta después de persistirla; se puede reintentar la misma respuesta, pero no cambiarla.
 
@@ -103,6 +107,8 @@ El catálogo no vence. Exportá su JSON desde el panel después de cambios impor
 El Excel admite 1–50 preguntas en `Preguntas`, con los seis encabezados exactos de la plantilla. La columna B es la correcta al importar; al jugar, las alternativas reciben posiciones mezcladas. Fórmulas, datos parciales, protección y tipos no admitidos rechazan la importación completa. Los límites son 2 MiB de archivo y cinco segundos de análisis en un Web Worker. No se sube el archivo; solo se guarda el JSON validado tras confirmar.
 
 Los CSV separan `correcta`, `incorrecta`, `sin_respuesta` y `no_presentada`. Incluyen BOM UTF-8, comillas escapadas, CRLF y neutralización de celdas que podrían ejecutarse como fórmulas. Conservá los identificadores como **texto** al importarlos en Excel para no perder ceros iniciales.
+
+Clasificación, podio y respuestas incluyen `personaje` (nombre en clave) y `nombre_elegido`, sin depender del modo de visualización. `nombre_elegido` se agrega al final para conservar el orden de las columnas anteriores. Las salas creadas antes de esta opción conservan sus nombres en clave; el nombre elegido queda vacío para quienes ingresaron antes, porque ese dato no se había solicitado.
 
 ## Carga y operación
 

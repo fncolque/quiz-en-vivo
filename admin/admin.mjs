@@ -777,6 +777,18 @@ async function prepare(q) {
   const error = el("div", { class: "error", role: "alert" });
   const list = el("div", { class: "times-list" });
   const versionTitle = el("p", { class: "muted" }, q.title);
+  const nameMode = el(
+    "select",
+    {},
+    el("option", { value: "alias" }, "Nombres en clave"),
+    el("option", { value: "chosen" }, "Nombres elegidos"),
+  );
+  const nameSelection = field(
+    "Mostrar participantes como",
+    nameMode,
+    "Se mantiene durante toda la ronda. Los CSV siempre incluyen el nombre elegido y el nombre en clave.",
+  );
+  nameSelection.classList.add("session-names");
   let snapshot, times;
   const selector = el("select", { onchange: () => loadVersion() });
   for (let i = q.version; i >= 1; i--)
@@ -832,6 +844,7 @@ async function prepare(q) {
         quizId: q.id,
         version: Number(selector.value),
         times,
+        nameMode: nameMode.value,
       });
       await host(room.code);
     } catch (e) {
@@ -844,6 +857,7 @@ async function prepare(q) {
     el("h1", {}, "Preparar sesión"),
     versionTitle,
     error,
+    nameSelection,
     el(
       "div",
       { class: "editor-title" },
@@ -1035,7 +1049,7 @@ async function host(code) {
         "select",
         { "aria-label": "Participante a recuperar" },
         state.players.map((p) =>
-          el("option", { value: p.id }, `${p.identifier} · ${p.alias}`),
+          el("option", { value: p.id }, `${p.identifier} · ${p.name || "Sin nombre registrado"} · ${p.alias}`),
         ),
       );
       privateArea.append(

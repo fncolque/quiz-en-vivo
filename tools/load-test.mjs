@@ -99,6 +99,7 @@ async function socket(role, token) {
       if (role === "public") {
         report.publicStates++;
         assert.equal(JSON.stringify(message).includes("synthetic-"), false);
+        assert.equal(JSON.stringify(message).includes("Persona sintética"), false);
         if (["lobby", "reading", "answering"].includes(message.state?.phase)) {
           assert.equal(message.state.question?.correctOptionId, undefined);
           assert.equal(message.state.question?.explanation, undefined);
@@ -149,7 +150,10 @@ try {
       request(
         `${roomPath}/join`,
         "POST",
-        { identifier: `synthetic-${String(i).padStart(3, "0")}` },
+        {
+          identifier: `synthetic-${String(i).padStart(3, "0")}`,
+          name: `Persona sintética ${i}`,
+        },
         null,
       ),
     ),
@@ -158,7 +162,7 @@ try {
   await request(
     `${roomPath}/join`,
     "POST",
-    { identifier: "synthetic-121" },
+    { identifier: "synthetic-121", name: "Sin lugar" },
     null,
     409,
   );

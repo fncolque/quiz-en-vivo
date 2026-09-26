@@ -17,6 +17,13 @@ export class QuizCatalog extends DurableObject {
       CREATE TABLE IF NOT EXISTS quiz_versions (quiz_id TEXT NOT NULL, version INTEGER NOT NULL, content TEXT NOT NULL, hash TEXT NOT NULL, publish_request TEXT UNIQUE NOT NULL, source_revision INTEGER NOT NULL, PRIMARY KEY (quiz_id,version));
       CREATE TABLE IF NOT EXISTS room_registry (code TEXT PRIMARY KEY, request_id TEXT UNIQUE NOT NULL, quiz_id TEXT NOT NULL, version INTEGER NOT NULL, times TEXT NOT NULL, created_at INTEGER NOT NULL, expires_at INTEGER NOT NULL);
     `);
+    if (
+      !this.sql.exec("PRAGMA table_info(room_registry)").toArray()
+        .some(c => c.name === "name_mode")
+    )
+      this.sql.exec(
+        "ALTER TABLE room_registry ADD COLUMN name_mode TEXT NOT NULL DEFAULT 'alias'",
+      );
   }
   row(query, ...args) {
     return this.sql.exec(query, ...args).toArray()[0];
@@ -444,6 +451,13 @@ export class QuizCatalog extends DurableObject {
       }
       if (path === "/internal/reserve" && request.method === "POST") {
         requestId(data.requestId);
+        const nameMode = data.nameMode ?? "alias";
+        requireThat(
+          ["alias", "chosen"].includes(nameMode),
+          400,
+          "INVALID_NAME_MODE",
+          "Elegí nombres en clave o nombres elegidos.",
+        );
         const reservation = this.ctx.storage.transactionSync(() => {
           const prior = this.row(
             "SELECT * FROM room_registry WHERE request_id=?",
@@ -474,7 +488,7 @@ export class QuizCatalog extends DurableObject {
           );
           const now = Date.now();
           this.sql.exec(
-            "INSERT INTO room_registry VALUES (?,?,?,?,?,?,?)",
+            "INSERT INTO room_registry (code,request_id,quiz_id,version,times,created_at,expires_at,name_mode) VALUES (?,?,?,?,?,?,?,?)",
             code,
             data.requestId,
             data.quizId,
@@ -482,6 +496,7 @@ export class QuizCatalog extends DurableObject {
             JSON.stringify(times),
             now,
             now + DAY,
+            nameMode,
           );
           return this.row("SELECT * FROM room_registry WHERE code=?", code);
         });
@@ -496,6 +511,7 @@ export class QuizCatalog extends DurableObject {
           code: reservation.code,
           createdAt: reservation.created_at,
           times: JSON.parse(reservation.times),
+          nameMode: reservation.name_mode,
           quiz: {
             ...JSON.parse(version.content),
             quizId: reservation.quiz_id,

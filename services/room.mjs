@@ -18,6 +18,8 @@ import {
   rank,
   csv,
   requestId,
+  randomInt,
+  text,
 } from "./rules.mjs";
 
 export class QuizRoom extends DurableObject {
@@ -33,6 +35,13 @@ export class QuizRoom extends DurableObject {
       CREATE TABLE IF NOT EXISTS commands (request_id TEXT PRIMARY KEY, action TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS recoveries (player_id TEXT PRIMARY KEY, code_hash TEXT NOT NULL, expires_at INTEGER NOT NULL, attempts INTEGER NOT NULL DEFAULT 0);
     `);
+    if (
+      !this.sql.exec("PRAGMA table_info(players)").toArray()
+        .some(c => c.name === "name")
+    )
+      this.sql.exec(
+        "ALTER TABLE players ADD COLUMN name TEXT NOT NULL DEFAULT ''",
+      );
     ctx.setWebSocketAutoResponse(
       new WebSocketRequestResponsePair("ping", "pong"),
     );
@@ -150,8 +159,15 @@ export class QuizRoom extends DurableObject {
       if (e.code !== "ROOM_EXPIRED") throw e;
     }
   }
+  visibleIdentity(player, room) {
+    return {
+      alias: player.alias,
+      avatar: player.avatar,
+      displayName: room.nameMode === "chosen" ? player.name : player.alias,
+    };
+  }
   summary(room) {
-    const players = this.rows("SELECT id,alias,avatar FROM players");
+    const players = this.rows("SELECT id,name,alias,avatar FROM players");
     const answers = this.rows("SELECT * FROM answers");
     const totals = new Map();
     for (const a of answers)
@@ -159,8 +175,7 @@ export class QuizRoom extends DurableObject {
     const ranking = rank(
       players.map((p) => ({
         playerId: p.id,
-        alias: p.alias,
-        avatar: p.avatar,
+        ...this.visibleIdentity(p, room),
         points: totals.get(p.id) || 0,
       })),
     );
@@ -204,7 +219,7 @@ export class QuizRoom extends DurableObject {
       room,
       q,
       players: this.rows(
-        "SELECT id,identifier,alias,avatar,token_hash FROM players",
+        "SELECT id,identifier,name,alias,avatar,token_hash FROM players",
       ),
       answers: q
         ? this.rows(
@@ -235,6 +250,7 @@ export class QuizRoom extends DurableObject {
       title: room.title,
       quizId: room.quizId,
       version: room.version,
+      nameMode: room.nameMode ?? "alias",
       phase: room.phase,
       step: room.step,
       revision: room.revision,
@@ -254,10 +270,10 @@ export class QuizRoom extends DurableObject {
         ? {
             id: p.id,
             identifier: p.identifier,
-            alias: p.alias,
-            avatar: p.avatar,
+            name: p.name,
+            ...this.visibleIdentity(p, room),
           }
-        : { alias: p.alias, avatar: p.avatar },
+        : this.visibleIdentity(p, room),
     );
     if (q && room.phase !== "lobby") {
       state.question = {
@@ -292,8 +308,7 @@ export class QuizRoom extends DurableObject {
       );
       const a = answers.find((answer) => answer.player_id === p.id);
       state.self = {
-        alias: p.alias,
-        avatar: p.avatar,
+        ...this.visibleIdentity(p, room),
         answer: a ? { optionId: a.optionId, receivedAt: a.receivedAt } : null,
         points: this.closedScores(room).get(p.id) || 0,
       };
@@ -434,6 +449,7 @@ export class QuizRoom extends DurableObject {
               title: quiz.title,
               quizId: quiz.quizId,
               version: quiz.version,
+              nameMode: data.nameMode,
               total: quiz.questions.length,
               createdAt: data.createdAt,
               expiresAt: data.createdAt + DAY,
@@ -575,6 +591,13 @@ export class QuizRoom extends DurableObject {
           await this.broadcast();
           return json({ token, alias: p.alias, avatar: p.avatar });
         }
+        const name = text(data.name, 64, "Nombre elegido");
+        requireThat(
+          !/[\p{Cc}\p{Cf}\p{Cs}]/u.test(name),
+          400,
+          "INVALID_NAME",
+          "El nombre elegido debe contener caracteres visibles en una sola línea.",
+        );
         const p = this.ctx.storage.transactionSync(() => {
           room = this.metadata();
           requireThat(
@@ -592,22 +615,29 @@ export class QuizRoom extends DurableObject {
             "IDENTIFIER_TAKEN",
             "Este identificador ya está en la sala. Usá el navegador original o pedí recuperación.",
           );
-          const count = this.row("SELECT COUNT(*) AS count FROM players").count;
+          const assigned = this.rows("SELECT avatar FROM players");
           requireThat(
-            count < CAPACITY,
+            assigned.length < CAPACITY,
             409,
             "ROOM_FULL",
             "La sala ya tiene 120 participantes.",
           );
-          const p = { id: crypto.randomUUID(), ...identity(count) };
+          const used = new Set(assigned.map(p => p.avatar));
+          const available = Array.from({ length: CAPACITY }, (_, i) => i)
+            .filter(i => !used.has(i));
+          const p = {
+            id: crypto.randomUUID(),
+            ...identity(available[randomInt(available.length)]),
+          };
           this.sql.exec(
-            "INSERT INTO players VALUES (?,?,?,?,?,?)",
+            "INSERT INTO players (id,identifier,normalized,alias,avatar,token_hash,name) VALUES (?,?,?,?,?,?,?)",
             p.id,
             input.original,
             input.normalized,
             p.alias,
             p.avatar,
             tokenHash,
+            name,
           );
           room.revision++;
           this.save(room);
@@ -827,13 +857,17 @@ export class QuizRoom extends DurableObject {
           if (url.searchParams.get("scope") === "podium")
             ranking = ranking.filter((p) => p.place <= 3);
           rows = [
-            ["sala", "puesto", "identificador", "personaje", "puntos"],
+            [
+              "sala", "puesto", "identificador", "personaje", "puntos",
+              "nombre_elegido",
+            ],
             ...ranking.map((p) => [
               room.code,
               p.place,
               players.find((x) => x.id === p.playerId).identifier,
               p.alias,
               p.points,
+              players.find((x) => x.id === p.playerId).name,
             ]),
           ];
         } else {
@@ -861,6 +895,7 @@ export class QuizRoom extends DurableObject {
               "resultado",
               "puntos",
               "transcurrido_ms",
+              "nombre_elegido",
             ],
           ];
           for (const row of this.rows(
@@ -894,6 +929,7 @@ export class QuizRoom extends DurableObject {
                       : "incorrecta",
                 a?.points || 0,
                 a ? a.received_at - row.opened_at : "",
+                p.name,
               ]);
             }
           }

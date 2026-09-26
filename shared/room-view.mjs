@@ -28,7 +28,7 @@ export function renderRoom(
       el(
         "p",
         {},
-        `${state.registered} de ${state.capacity} participantes · Esperando a quien conduce`,
+        `${state.registered} de ${state.capacity} participantes · ${state.nameMode === "chosen" ? "Nombres elegidos" : "Nombres en clave"} · Esperando a quien conduce`,
       ),
     );
     if (state.self)
@@ -37,12 +37,12 @@ export function renderRoom(
           "div",
           { class: "self" },
           avatar(state.self.avatar),
-          el("strong", {}, `Sos ${state.self.alias}`),
+          el("strong", {}, `Sos ${state.self.displayName}`),
         ),
       );
     const people = el("div", { class: "people" });
     for (const p of state.players)
-      people.append(el("div", {}, avatar(p.avatar), el("span", {}, p.alias)));
+      people.append(el("div", {}, avatar(p.avatar), el("span", {}, p.displayName)));
     root.append(people);
   } else if (state.phase === "finished") {
     root.append(
@@ -57,7 +57,7 @@ export function renderRoom(
           "div",
           {},
           avatar(p.avatar),
-          el("strong", {}, `${p.place} · ${p.alias}`),
+          el("strong", {}, `${p.place} · ${p.displayName}`),
           el("span", {}, `${p.points.toLocaleString("es-AR")} puntos`),
         ),
       );
@@ -71,7 +71,7 @@ export function renderRoom(
           "ol",
           { class: "ranking" },
           state.ranking.map((p) =>
-            el("li", {}, `${p.place} · ${p.alias} — ${p.points} puntos`),
+            el("li", {}, `${p.place} · ${p.displayName} — ${p.points} puntos`),
           ),
         ),
       ),
@@ -231,7 +231,7 @@ export function renderRoom(
           "div",
           { class: "self" },
           avatar(state.self.avatar),
-          el("span", {}, `${state.self.alias} · ${state.self.points} puntos`),
+          el("span", {}, `${state.self.displayName} · ${state.self.points} puntos`),
         ),
       );
   }

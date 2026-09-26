@@ -37,10 +37,21 @@ function joinForm() {
     maxlength: "64",
     required: true,
   });
+  const inputName = el("input", {
+    name: "name",
+    autocomplete: "nickname",
+    maxlength: "64",
+    required: true,
+  });
   const recovery = el("input", {
     name: "recovery",
     autocomplete: "off",
     maxlength: 12,
+    oninput: () => {
+      const recovering = Boolean(recovery.value.trim());
+      inputName.disabled = recovering;
+      inputName.required = !recovering;
+    },
   });
   const submit = el(
     "button",
@@ -63,7 +74,7 @@ function joinForm() {
               identifier: inputId.value,
               ...(recovery.value.trim()
                 ? { recoveryCode: recovery.value.trim() }
-                : {}),
+                : { name: inputName.value }),
             },
           });
           const targetKey = `ronda:participant:${config.apiBaseUrl}:${room}`;
@@ -88,9 +99,14 @@ function joinForm() {
     el("h2", {}, "Tu lugar está acá."),
     field("Código de sala", inputCode),
     field(
+      "Nombre elegido",
+      inputName,
+      "Si quien conduce elige mostrar nombres, el grupo verá este nombre. Siempre queda en los resultados privados.",
+    ),
+    field(
       "Identificador",
       inputId,
-      "Por ejemplo, tu legajo o código acordado. No uses información sensible.",
+      "Tu legajo o código acordado. Sirve para recuperar tu acceso y no se muestra al grupo.",
     ),
     el(
       "details",
@@ -99,7 +115,7 @@ function joinForm() {
       field(
         "Código de recuperación",
         recovery,
-        "Pedíselo en privado a quien conduce.",
+        "Pedíselo en privado a quien conduce. Conservás tu nombre, personaje y puntaje.",
       ),
     ),
     error,

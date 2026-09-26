@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import WebSocket from "ws";
+import * as XLSX from "../admin/vendor/xlsx.mjs";
 const base = process.env.TEST_BASE_URL || "http://127.0.0.1:8787";
 const secret = process.env.TEST_MASTER_SECRET || "ronda-local-development-only";
 const uid = () => crypto.randomUUID();
@@ -46,6 +47,140 @@ test("el catálogo rechaza a quien no presenta la contraseña", async () => {
   assert.equal(response.status, 401);
   assert.equal(response.headers.get("cache-control"), "no-store");
 });
+test("cada ronda fija los nombres visibles y exporta ambos sin filtrar los privados", async (t) => {
+  const quiz = fixture(1);
+  const created = await api("/quizzes", "POST", { requestId: uid(), quiz });
+  await api(`/quizzes/${created.id}/publish`, "POST", {
+    requestId: uid(),
+    expectedRevision: 1,
+  });
+  for (const nameMode of ["alias", "chosen"]) {
+    await t.test(nameMode, async (t) => {
+      const creation = {
+        requestId: uid(),
+        quizId: created.id,
+        version: 1,
+        nameMode,
+      };
+      const room = await api("/rooms", "POST", creation);
+      const route = `/rooms/${room.code}`;
+      assert.equal((await api(`${route}/state`)).nameMode, nameMode);
+      const repeated = await api("/rooms", "POST", {
+        ...creation,
+        nameMode: nameMode === "alias" ? "chosen" : "alias",
+      });
+      assert.equal(repeated.code, room.code);
+      assert.equal((await api(`${route}/state`)).nameMode, nameMode);
+      await api(`${route}/join`, "POST", { identifier: "without-name" }, null, 400);
+      const identities = [
+        { identifier: "private-001", name: 'Álex, "Sur"' },
+        { identifier: "private-002", name: "=SUM(1;2)" },
+      ];
+      const players = [];
+      for (const input of identities)
+        players.push(await api(`${route}/join`, "POST", input, null));
+      assert.notEqual(players[0].alias, players[1].alias);
+      let state = await api(`${route}/state`);
+      assert.deepEqual(
+        state.players.map(p => p.name),
+        identities.map(p => p.name),
+      );
+      const messages = [];
+      const socket = new WebSocket(
+        `${base.replace("http", "ws")}/api${route}/socket`,
+        { origin: "http://127.0.0.1:4173" },
+      );
+      t.after(() => socket.terminate());
+      socket.on("message", raw => messages.push(JSON.parse(raw.toString()).state));
+      await new Promise((resolve, reject) => {
+        socket.once("error", reject);
+        socket.once("open", () =>
+          socket.send(JSON.stringify({ type: "auth", role: "public" })),
+        );
+        socket.once("message", resolve);
+      });
+      const command = async action => {
+        state = await api(`${route}/commands`, "POST", {
+          requestId: uid(),
+          expectedStep: state.step,
+          action,
+        });
+      };
+      await command("start");
+      await command("open");
+      for (const player of players)
+        await api(`${route}/answers`, "POST", {
+          questionId: quiz.questions[0].id,
+          optionId: quiz.questions[0].correctOptionId,
+        }, player.token);
+      state = await api(`${route}/state`);
+      const finished = new Promise((resolve, reject) => {
+        const timeout = setTimeout(
+          () => reject(new Error("Falta el estado final por WebSocket.")),
+          3000,
+        );
+        socket.on("message", raw => {
+          if (JSON.parse(raw.toString()).state.phase === "finished") {
+            clearTimeout(timeout);
+            resolve();
+          }
+        });
+      });
+      await command("finish");
+      await finished;
+      const publicState = await api(`${route}/state`, "GET", null, null);
+      const participantState = await api(`${route}/state`, "GET", null, players[0].token);
+      assert.equal(
+        participantState.self.displayName,
+        nameMode === "chosen" ? identities[0].name : players[0].alias,
+      );
+      for (const exposed of [...messages, publicState, participantState]) {
+        assert.equal(JSON.stringify(exposed).includes("private-"), false);
+        for (let i = 0; i < players.length; i++) {
+          assert.equal(
+            exposed.players[i].displayName,
+            nameMode === "chosen" ? identities[i].name : players[i].alias,
+          );
+          assert.equal(exposed.players[i].name, undefined);
+        }
+        if (nameMode === "alias")
+          for (const input of identities)
+            assert.equal(
+              JSON.stringify(exposed).includes(JSON.stringify(input.name).slice(1, -1)),
+              false,
+            );
+        if (exposed.phase === "finished")
+          for (const row of exposed.ranking) {
+            const i = players.findIndex(p => p.alias === row.alias);
+            assert.equal(
+              row.displayName,
+              nameMode === "chosen" ? identities[i].name : players[i].alias,
+            );
+          }
+      }
+      for (const file of ["results.csv", "results.csv?scope=podium", "answers.csv"]) {
+        const response = await fetch(`${base}/api${route}/${file}`, {
+          headers: { Authorization: `Bearer ${secret}` },
+        });
+        assert.equal(response.status, 200);
+        const book = XLSX.read(await response.text(), { type: "string", raw: true });
+        const rows = XLSX.utils.sheet_to_json(book.Sheets[book.SheetNames[0]]);
+        assert.equal(rows.length, 2);
+        for (let i = 0; i < players.length; i++) {
+          const row = rows.find(row => row.identificador === identities[i].identifier);
+          assert.equal(row.personaje, players[i].alias);
+          assert.equal(row.nombre_elegido, i === 1 ? "'=SUM(1;2)" : identities[i].name);
+        }
+      }
+    });
+  }
+  await api("/rooms", "POST", {
+    requestId: uid(),
+    quizId: created.id,
+    version: 1,
+    nameMode: "invalid",
+  }, secret, 400);
+});
 test("120 participantes, lectura pública, respuesta privada y cierre atómico en ráfaga", async (t) => {
   const quiz = fixture(1);
   const created = await api("/quizzes", "POST", { requestId: uid(), quiz });
@@ -61,7 +196,7 @@ test("120 participantes, lectura pública, respuesta privada y cierre atómico e
   const route = `/rooms/${code}`;
   const players = await Promise.all(
     Array.from({ length: 120 }, (_, i) =>
-      api(`${route}/join`, "POST", { identifier: `load-${i}` }, null),
+      api(`${route}/join`, "POST", { identifier: `load-${i}`, name: `Persona ${i}` }, null),
     ),
   );
   const livePlayers = await Promise.all(
@@ -93,7 +228,7 @@ test("120 participantes, lectura pública, respuesta privada y cierre atómico e
     ),
   );
   assert.equal(new Set(players.map((p) => p.alias)).size, 120);
-  await api(`${route}/join`, "POST", { identifier: "load-121" }, null, 409);
+  await api(`${route}/join`, "POST", { identifier: "load-121", name: "Sin lugar" }, null, 409);
   const socket = new WebSocket(
     `${base.replace("http", "ws")}/api${route}/socket`,
     { origin: "http://127.0.0.1:4173" },
@@ -200,7 +335,7 @@ test("el facilitador recupera un acceso y revoca credencial y socket anteriores"
   const p = await api(
     `${route}/join`,
     "POST",
-    { identifier: "recover-test" },
+    { identifier: "recover-test", name: "Andrea" },
     null,
   );
   const socket = new WebSocket(
@@ -234,6 +369,7 @@ test("el facilitador recupera un acceso y revoca credencial y socket anteriores"
   );
   assert.equal(replacement.alias, p.alias);
   assert.equal(replacement.avatar, p.avatar);
+  assert.equal((await api(`${route}/state`)).players[0].name, "Andrea");
   await api(
     `${route}/join`,
     "POST",
@@ -322,7 +458,7 @@ test("50 preguntas de texto máximo se publican y exportan sin un valor crecient
   const p = await api(
     `${route}/join`,
     "POST",
-    { identifier: "max-text" },
+    { identifier: "max-text", name: "Persona de prueba" },
     null,
   );
   let state = await api(`${route}/state`);
@@ -380,10 +516,10 @@ test("una versión manual recorre sala, lectura, respuesta persistida y CSV", as
   const player = await api(
     `${route}/join`,
     "POST",
-    { identifier: "00123" },
+    { identifier: "00123", name: "María" },
     null,
   );
-  await api(`${route}/join`, "POST", { identifier: "00123" }, null, 409);
+  await api(`${route}/join`, "POST", { identifier: "00123", name: "Otra persona" }, null, 409);
   let state = await api(`${route}/state`);
   const command = async (action) => {
     state = await api(`${route}/commands`, "POST", {

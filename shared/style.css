@@ -168,6 +168,9 @@ p {
   font-size: 12px;
   line-height: 1.4;
 }
+.session-names {
+  margin-bottom: 24px;
+}
 input,
 textarea,
 select {
@@ -462,6 +465,10 @@ input[type="checkbox"] {
   gap: 6px;
   font-size: 11px;
 }
+.people span {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
 .avatar {
   width: 52px;
   height: 52px;
@@ -477,6 +484,11 @@ input[type="checkbox"] {
   gap: 15px;
   margin-top: 26px;
   font-size: 15px;
+}
+.self strong,
+.self span {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 .question-meta {
   display: flex;
@@ -618,6 +630,7 @@ progress {
   border: 1px solid #58674d;
   padding: 24px;
   min-width: 200px;
+  max-width: 100%;
   border-radius: 12px;
   display: flex;
   flex-direction: column;
@@ -633,6 +646,10 @@ progress {
   columns: 3;
   font-size: 15px;
   line-height: 2;
+}
+.podium strong,
+.ranking li {
+  overflow-wrap: anywhere;
 }
 .summary-question {
   border-top: 1px solid var(--line);

@@ -47,7 +47,7 @@ La primera carga remota reveló una amplificación de lecturas: se volvía a con
 
 La segunda carga recorrió la sala `309844` desde las 20:42:33 hasta las 21:22:35 UTC. El host cerró su socket durante la pregunta 8 y el servidor siguió cerrando por plazo; el control HTTP permaneció disponible. Se verificaron reintentos idénticos y rechazo del cambio de respuesta, 1906 estados públicos sin identificadores ni soluciones anticipadas y conciliación independiente de todos los puntajes. Informe: `artifacts/load-1790457755465.json`. El cuestionario sintético quedó archivado. El motor probado corresponde a `05c94b4` y al Worker `15bc8956-0871-4138-8699-1c04860acef7`.
 
-La publicación final del Worker es `94ca93e1-6a47-43ea-8cb0-877cd2d9a79c`; conserva ese motor de sala y añade validación de respaldo, mejoras de interfaz y un mensaje explícito de indisponibilidad por cuota. La traza transitoria `npx wrangler tail --config wrangler.production.jsonc --format json` confirmó la causa; se detuvo y se conservó sanitizada, sin cabeceras ni datos de solicitud. La observabilidad persistente sigue desactivada. `/health` comprueba que el Worker responde; no demuestra disponibilidad del almacenamiento.
+La publicación anterior del Worker `94ca93e1-6a47-43ea-8cb0-877cd2d9a79c` conserva ese motor de sala y añade validación de respaldo, mejoras de interfaz y un mensaje explícito de indisponibilidad por cuota. La traza transitoria `npx wrangler tail --config wrangler.production.jsonc --format json` confirmó la causa; se detuvo y se conservó sanitizada, sin cabeceras ni datos de solicitud. La observabilidad persistente sigue desactivada. `/health` comprueba que el Worker responde; no demuestra disponibilidad del almacenamiento.
 
 ## Consumo medido e incidente de cuota
 
@@ -73,6 +73,32 @@ La consulta diaria de toda la cuenta a las 21:24:16 UTC devolvió 25.055.493 lec
 Antes del corte se exportó y releyó un respaldo fuera del repositorio público: `catalogo-inicial-2026-09-26.json`, con tres cuestionarios, uno activo y dos sintéticos archivados. No contiene identificadores de participantes. El estado público completo previo al despliegue queda en `artifacts/production-state-before-redeploy.json` para compararlo tras el reinicio; `artifacts/production-redeploy-check.json` registra la comprobación actualmente bloqueada.
 
 ## Revisión de interfaz
+
+### Ampliación: nombres por ronda
+
+Se incorporó `nameMode` (`alias` o `chosen`) en la reserva y el estado de cada sala. El selector usa nombres en clave inicialmente y queda fijo al crear la ronda, también ante un reintento de creación con el mismo ID. El ingreso ahora pide `name` además de `identifier`; la recuperación conserva el nombre existente. El servidor calcula `displayName` para todas las vistas y omite `name` de los estados públicos y de participantes. Los CSV protegidos agregan `nombre_elegido` al final y mantienen `personaje`.
+
+La asignación anterior dependía del orden de llegada. Ahora sortea una identidad entre las disponibles, sin repeticiones dentro de los 120 lugares. No cambia una identidad ya asignada. Se agregan dos columnas mediante `ALTER TABLE` después de comprobar su presencia: `players.name` y `room_registry.name_mode`. No se eliminan ni reescriben participantes, respuestas o versiones.
+
+- `node --test --test-name-pattern='cada ronda fija' tests/live.test.mjs`: primero falló porque faltaba el modo en el estado y se aceptaban valores inválidos. Después pasaron el recorrido principal y los dos modos, incluyendo HTTP, WebSocket, identidad propia, clasificación, podio, tres CSV y neutralización de fórmulas en el nombre.
+- `npm run test:live`: 10/10, incluidos los dos subcasos de nombres, en 21,66 s. Incluye 120 participantes con nombres y recuperación conservando ambos nombres.
+- `npm test`: 8/8. `npm run build` y `npx wrangler deploy --config wrangler.production.jsonc --dry-run`: correctos; Worker de 61,93 KiB, 15,09 KiB comprimidos.
+- Se comparó la sala local anterior `300274` antes y después de agregar las columnas: mantiene sus 1185 puntos y todos los campos anteriores; las únicas adiciones públicas son `nameMode=alias` y `displayName` igual al alias. Su CSV agrega el nombre elegido vacío. Evidencias: `artifacts/names-migration-before.json` y `artifacts/names-migration-after.json`.
+- Navegador local a 390 píxeles: ingreso como **Luna de prueba**, identidad visible durante lectura y respuesta, recarga conservando nombre y 1185 puntos, y podio con el nombre elegido. No se mostró el identificador al grupo.
+- Segunda ronda local con nombres en clave: **Luna de prueba** recibió **Búho Cielo**, que se mostró en la espera, durante lectura y en el podio. Sin desbordamiento horizontal a 390 píxeles. Capturas locales: `artifacts/screenshots/nombres-configuracion.png`, `nombres-podio-390.png` y `nombres-clave-podio-390.png`.
+- El ensayo remoto de 40 minutos registrado antes de esta ampliación no se repitió. El simulador se adaptó al nuevo campo obligatorio, pero no se generó otra carga en la cuenta con el cupo agotado. La aceptación remota de este cambio sigue pendiente del restablecimiento del servicio.
+
+El cambio se desplegó con `npx wrangler deploy --config wrangler.production.jsonc` como Worker `ea905ddd-c79d-4304-9406-cb9bf4fa8fa8`. A las 22:03 UTC del 26/09, `/health` confirmó esa versión y los tres archivos modificados del panel coincidieron con la construcción local. El catálogo autenticado siguió devolviendo `503 STORAGE_QUOTA`; por tanto, todavía no se comprobó este recorrido contra los datos de producción. Evidencia local: `artifacts/names-deployment.json`. La contraseña solicitada permanece como secreto del servidor y no aparece en los archivos versionados.
+
+Validación humana de esta opción, pendiente:
+
+1. ¿Encontrás y comprendés el selector de nombres antes de crear una ronda?
+2. ¿El aviso al ingresar explica cuándo el nombre elegido puede verlo el grupo?
+3. ¿La lista, la identidad durante el juego y el podio usan el modo que seleccionaste?
+4. ¿Podés relacionar nombre elegido, nombre en clave e identificador en los tres CSV?
+5. ¿La recuperación conserva los dos nombres y el puntaje sin pedir que se cambien?
+
+### Recorridos previos
 
 Se comprobaron anchos efectivos de 390, 768, 1280 y 1920 píxeles. La entrada, lectura y respuesta móviles, el editor y la proyección no presentaron desbordamiento horizontal. La vista previa local con 800 caracteres de pregunta y 2000 de explicación empieza arriba, permite desplazamiento y se cierra con Escape. La navegación entre pantallas vuelve al inicio.
 
