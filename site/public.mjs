@@ -11,9 +11,7 @@ window.addEventListener("pageshow", (event) => {
 const key = `ronda:participant:${config.apiBaseUrl}:${code}`;
 document.querySelector("#admin-link")?.setAttribute("href", config.adminUrl);
 const error = el("div", { class: "error", role: "alert" });
-let token,
-  state,
-  pending = false;
+let token, state;
 try {
   token = JSON.parse(localStorage.getItem(key) || "null")?.token;
 } catch {
@@ -39,21 +37,10 @@ function joinForm(roomCode = /^\d{6}$/.test(code || "") ? code : null) {
     maxlength: "64",
     required: true,
   });
-  const inputName = el("input", {
-    name: "name",
-    autocomplete: "nickname",
-    maxlength: "64",
-    required: true,
-  });
   const recovery = el("input", {
     name: "recovery",
     autocomplete: "off",
     maxlength: 12,
-    oninput: () => {
-      const recovering = Boolean(recovery.value.trim());
-      inputName.disabled = recovering;
-      inputName.required = !recovering;
-    },
   });
   const submit = el(
     "button",
@@ -76,7 +63,7 @@ function joinForm(roomCode = /^\d{6}$/.test(code || "") ? code : null) {
               identifier: inputId.value,
               ...(recovery.value.trim()
                 ? { recoveryCode: recovery.value.trim() }
-                : { name: inputName.value }),
+                : {}),
             },
           });
           const targetKey = `ronda:participant:${config.apiBaseUrl}:${room}`;
@@ -105,18 +92,14 @@ function joinForm(roomCode = /^\d{6}$/.test(code || "") ? code : null) {
       roomCode ? "Entrá a la ronda." : "Tu lugar está acá.",
     ),
     roomCode
-      ? el("p", { class: "muted" }, "Completá tus datos para sumarte.")
+      ? el("p", { class: "muted" }, "Un solo dato para sumarte.")
       : field("Código de sala", inputCode),
     field(
-      "Nombre elegido",
-      inputName,
-      "Si quien conduce elige mostrar nombres, el grupo verá este nombre. Siempre queda en los resultados privados.",
-    ),
-    field(
-      "Identificador",
+      "Nombre o identificador",
       inputId,
-      "Tu legajo o código acordado. Sirve para recuperar tu acceso y no se muestra al grupo.",
+      "Completá este campo según las instrucciones que recibiste para esta sala. Debe ser único en la sala.",
     ),
+    el("p", { class: "muted" }, "Quien conduce decide si se muestra este dato o un nombre aleatorio. Ambos quedan en los resultados privados."),
     el(
       "details",
       {},
@@ -173,9 +156,20 @@ function start(room, credential) {
     el("span", { class: "connection", role: "status" });
   if (!status.isConnected) document.querySelector(".topbar").append(status);
   const clock = startClock(content);
-  let pendingChoice;
+  let pendingChoice, activeRequest, pending = false;
+  function clearPending() {
+    activeRequest?.abort();
+    activeRequest = undefined;
+    pendingChoice = undefined;
+    pending = false;
+    retry.replaceChildren();
+  }
   async function answer(optionId) {
+    if (activeRequest) return;
     const choice = pendingChoice || { questionId: state.question.id, optionId };
+    const controller = new AbortController();
+    activeRequest = controller;
+    const timeout = setTimeout(() => controller.abort(), 5000);
     pendingChoice = choice;
     pending = true;
     error.textContent = "";
@@ -186,15 +180,22 @@ function start(room, credential) {
         method: "POST",
         body: choice,
         token: credential,
+        signal: controller.signal,
       });
-      pendingChoice = undefined;
+      if (activeRequest !== controller) return;
       const confirmed = await api(config.apiBaseUrl, `/rooms/${room}/state`, {
         token: credential,
+        signal: controller.signal,
       });
+      if (activeRequest !== controller) return;
+      pendingChoice = undefined;
       if (!state || confirmed.revision >= state.revision) state = confirmed;
     } catch (e) {
-      error.textContent = e.message;
-      if (!e.code)
+      if (activeRequest !== controller) return;
+      error.textContent = e.name === "AbortError"
+        ? "No recibimos la confirmación del envío. Reintentá la misma respuesta antes de que termine el tiempo."
+        : e.message;
+      if (!e.code || e.name === "AbortError")
         retry.append(
           button(
             "Reintentar la misma respuesta",
@@ -204,8 +205,12 @@ function start(room, credential) {
         );
       else pendingChoice = undefined;
     } finally {
-      pending = false;
-      render();
+      clearTimeout(timeout);
+      if (activeRequest === controller) {
+        activeRequest = undefined;
+        pending = false;
+        render();
+      }
     }
   }
   function render() {
@@ -225,6 +230,7 @@ function start(room, credential) {
       status.textContent = text;
     },
     onClosed: (closeCode) => {
+      clearPending();
       clock.stop();
       retry.replaceChildren(
         button(
@@ -243,7 +249,7 @@ function start(room, credential) {
               return;
             }
             error.textContent =
-              "Tu acceso anterior fue revocado. Ingresá tu identificador y el código de recuperación que te dio quien conduce.";
+              "Tu acceso anterior fue revocado. Ingresá el mismo nombre o identificador y el código de recuperación que te dio quien conduce.";
             joinForm(room);
           },
           "secondary",
@@ -252,6 +258,13 @@ function start(room, credential) {
     },
     onState: (next) => {
       if (state && next.revision < state.revision) return;
+      const changedQuestion = state?.question?.id !== next.question?.id;
+      const confirmed = pendingChoice &&
+        next.question?.id === pendingChoice.questionId &&
+        next.self?.answer?.optionId === pendingChoice.optionId;
+      if (pendingChoice && (confirmed || changedQuestion || next.phase !== "answering"))
+        clearPending();
+      if (confirmed || changedQuestion) error.textContent = "";
       state = next;
       clock.update(state.serverNow);
       render();
@@ -260,6 +273,7 @@ function start(room, credential) {
   window.addEventListener(
     "pagehide",
     () => {
+      clearPending();
       stop();
       clock.stop();
     },

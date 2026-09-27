@@ -2,7 +2,7 @@
 
 Cuestionarios en vivo para pensar en compañía. Un catálogo compartido permite crear o importar preguntas, publicar versiones y conducir sesiones de hasta 120 participantes.
 
-**Estado al 26/09/2026, 18:28 de Argentina:** la aplicación está publicada, pero el servicio de datos está temporalmente bloqueado por el cupo diario de lecturas de Cloudflare, agotado durante la primera prueba de carga. La causa de las lecturas excesivas se corrigió y la segunda prueba completó 40 minutos. El cupo se restablece a las 00:00 UTC del 27/09 (21:00 de Argentina del 26/09). Falta comprobar el catálogo y la conservación de resultados después de ese reinicio; no se considera lista para una actividad hasta completar esa comprobación.
+**Estado al 26/09/2026, 23:22 de Argentina:** el catálogo y las salas volvieron a responder. Se completó el recorrido funcional en producción con dos participantes por sala: creación y publicación, ambos modos de nombres, respuestas y omisiones, recuperación de acceso, podio y CSV. El catálogo previo y los resultados históricos se conservaron. El QR público se generó, descargó y decodificó correctamente; queda pendiente el escaneo con un teléfono físico. Esta comprobación pequeña no mide el cupo restante de la cuenta ni sustituye el ensayo con la red y los dispositivos de una actividad.
 
 - Sitio público: https://fncolque.github.io/quiz-en-vivo/
 - Creación y conducción: https://ronda-quiz-en-vivo.n-lisis-de--atos.workers.dev/
@@ -14,21 +14,21 @@ Cuestionarios en vivo para pensar en compañía. Un catálogo compartido permite
 1. Entrá a **Crear y conducir** con la contraseña de creadores. Quienes tienen esa contraseña comparten el catálogo y pueden descargar resultados identificados.
 2. Creá un cuestionario o importá la plantilla Excel. La importación ocurre en tu navegador; revisar y confirmar crea un borrador nuevo.
 3. Guardá, revisá la vista previa y pulsá **Publicar versión**. Editar después el borrador no modifica una versión ni una sesión existente.
-4. Elegí la versión, los tiempos y **Mostrar participantes como**: **Nombres en clave** (opción inicial) o **Nombres elegidos**. La elección queda fija para esa sala. Cada pregunta admite entre 1 y 600 segundos; el valor inicial es 15 segundos. Creá la sala y compartí su enlace o código.
+4. Elegí la versión, los tiempos y **Mostrar participantes como**: **Nombres aleatorios (anonimizar)** (opción inicial) o **Dato ingresado (nombre o identificador)**. Indicá al grupo qué debe escribir al entrar. La elección queda fija para esa sala. Cada pregunta admite entre 1 y 600 segundos; el valor inicial es 15 segundos. Creá la sala y compartí su enlace o código.
 5. Iniciá la lectura. Las opciones y el reloj aparecen al pulsar **Mostrar opciones**. La pregunta cierra cuando responde todo el grupo o vence el plazo del servidor. El avance es manual.
 6. Finalizá y descargá clasificación, podio o detalle. Los resultados vencen a las 24 horas de finalizar; una sala sin finalizar vence a las 24 horas de su creación.
 
 Para empezar, el catálogo incluye **Ejemplo — primeras tres preguntas**, publicado como versión 1. Podés duplicarlo para preparar tu propio contenido. Las salas creadas durante la comprobación son sintéticas y sus resultados vencerán normalmente.
 
-En el panel de la sala, **Mostrar QR de esta sala** permite proyectar el código o descargarlo como SVG. El QR y **Copiar enlace de participantes** llevan al mismo destino: el formulario de esa sala, que pide nombre elegido e identificador sin pasar por la portada ni pedir el número de sala. El QR se genera en el navegador y contiene solo el enlace público, sin contraseña ni credenciales. Compartilo antes de iniciar para admitir participantes nuevos; quien ya ingresó puede volver con su acceso. Desde la portada se mantiene el ingreso manual por código.
+En el panel de la sala, **Mostrar QR de esta sala** permite proyectar el código o descargarlo como SVG. El QR y **Copiar enlace de participantes** llevan al mismo destino: el formulario de esa sala, que pide un solo **Nombre o identificador** sin pasar por la portada ni pedir el número de sala. El QR se genera en el navegador y contiene solo el enlace público, sin contraseña ni credenciales. Compartilo antes de iniciar para admitir participantes nuevos; quien ya ingresó puede volver con su acceso. Desde la portada se mantiene el ingreso manual por código.
 
-Al ingresar, cada participante escribe un **nombre elegido** (1–64 caracteres visibles) y su **identificador**, que se trata como texto, incluidos ceros iniciales. El identificador nunca se muestra al grupo. Cada persona recibe además un personaje y un nombre en clave sorteados sin repeticiones dentro de la sala. Los nombres elegidos pueden repetirse; la identidad se conserva mediante el identificador y la credencial de acceso.
+Al ingresar, cada participante completa un único campo **Nombre o identificador**, siguiendo las instrucciones recibidas para la sala. Admite de 1 a 64 caracteres visibles y se trata como texto, incluidos ceros iniciales. Ese dato debe ser único dentro de la sala; si dos personas comparten nombre, quien conduce debe indicar cómo distinguirlas. Cada persona recibe además un personaje y un nombre aleatorio sin repeticiones dentro de la sala.
 
-La opción de la sala se aplica a la lista de participantes, la identidad durante el juego, el podio y la clasificación. En modo **Nombres en clave**, el servidor no envía los nombres elegidos a los clientes públicos o participantes. Quienes tienen la contraseña de creadores pueden consultar ambos y descargarlos en los resultados.
+La opción de la sala se aplica a la lista de participantes, la identidad durante el juego, el podio y la clasificación. **Dato ingresado** muestra lo que escribió la persona; **Nombres aleatorios** oculta ese dato en los estados públicos y de participantes. Quienes tienen la contraseña de creadores pueden consultar el dato ingresado y el nombre aleatorio y descargarlos en los resultados.
 
-El mismo navegador conserva la credencial de regreso; si se pierde, quien conduce puede generar una recuperación de un solo uso, válida diez minutos. Esto revoca el acceso anterior y conserva nombre elegido, nombre en clave y puntaje. En el formulario de recuperación no hace falta volver a escribir el nombre.
+El mismo navegador conserva la credencial de regreso; si se pierde, quien conduce puede generar una recuperación de un solo uso, válida diez minutos. La persona escribe el mismo nombre o identificador y ese código. Esto revoca el acceso anterior y conserva los datos y el puntaje. Las salas anteriores conservan sus identificadores originales para recuperar acceso.
 
-Las respuestas correctas reciben 1000 puntos más un bono de hasta 250 proporcional al tiempo restante de **esa pregunta**. Un error o una omisión suma cero. Los empates comparten puesto: 1, 1, 3. El servidor confirma una respuesta después de persistirla; se puede reintentar la misma respuesta, pero no cambiarla.
+Las respuestas correctas reciben 1000 puntos más un bono de hasta 250 proporcional al tiempo restante de **esa pregunta**. Un error o una omisión suma cero. Los empates comparten puesto: 1, 1, 3. El servidor confirma una respuesta después de persistirla; se puede reintentar la misma respuesta, pero no cambiarla. La confirmación en vivo también libera el envío pendiente, aunque se pierda la respuesta HTTP. Si en cinco segundos no hay confirmación, aparece un aviso y **Reintentar la misma respuesta**; debe llegar antes del cierre. Al pasar a otra pregunta se descarta el envío pendiente anterior, y la devolución indica cuando no quedó una respuesta guardada.
 
 ## Desarrollo local
 
@@ -110,7 +110,7 @@ El Excel admite 1–50 preguntas en `Preguntas`, con los seis encabezados exacto
 
 Los CSV separan `correcta`, `incorrecta`, `sin_respuesta` y `no_presentada`. Incluyen BOM UTF-8, comillas escapadas, CRLF y neutralización de celdas que podrían ejecutarse como fórmulas. Conservá los identificadores como **texto** al importarlos en Excel para no perder ceros iniciales.
 
-Clasificación, podio y respuestas incluyen `personaje` (nombre en clave) y `nombre_elegido`, sin depender del modo de visualización. `nombre_elegido` se agrega al final para conservar el orden de las columnas anteriores. Las salas creadas antes de esta opción conservan sus nombres en clave; el nombre elegido queda vacío para quienes ingresaron antes, porque ese dato no se había solicitado.
+Clasificación, podio y respuestas conservan `identificador`, `personaje` (nombre aleatorio) y `nombre_elegido`, sin depender del modo de visualización. Para los ingresos nuevos, `identificador` y `nombre_elegido` contienen el mismo dato del campo único. Los registros anteriores mantienen sus valores originales, incluido un nombre vacío si entonces no se solicitaba; no se reescriben resultados históricos ni cambia el orden de las columnas. Un formulario antiguo que aún envíe dos datos recibe la indicación de recargar, para evitar mostrar como nombre un identificador que su pantalla anunciaba como privado.
 
 ## Carga y operación
 

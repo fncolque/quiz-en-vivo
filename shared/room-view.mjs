@@ -28,7 +28,7 @@ export function renderRoom(
       el(
         "p",
         {},
-        `${state.registered} de ${state.capacity} participantes · ${state.nameMode === "chosen" ? "Nombres elegidos" : "Nombres en clave"} · Esperando a quien conduce`,
+        `${state.registered} de ${state.capacity} participantes · ${state.nameMode === "chosen" ? "Dato ingresado visible" : "Nombres aleatorios"} · Esperando a quien conduce`,
       ),
     );
     if (state.self)
@@ -221,7 +221,9 @@ export function renderRoom(
             ? "Enviando… Esperá la confirmación."
             : state.self?.answer
               ? "✓ Respuesta guardada. Podés esperar la explicación."
-              : `${state.answered} de ${state.frozenCount} respondieron`,
+              : role === "participant" && state.phase === "feedback"
+                ? "No quedó una respuesta guardada para esta pregunta."
+                : `${state.answered} de ${state.frozenCount} respondieron`,
         ),
       );
     }

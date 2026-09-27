@@ -4,7 +4,7 @@
 
 El pedido autorizado fue construir un proyecto nuevo, publicarlo en GitHub Pages y presentar alternativas visuales. El usuario confirmó la cuenta `fncolque`, los nombres `quiz-en-vivo` / `ronda-quiz-en-vivo`, el producto Ronda y la propuesta **A · Estudio**.
 
-**Estado final de esta ejecución: publicado, temporalmente sin servicio de datos.** A las 21:28 UTC (18:28 de Argentina) del 26/09, el catálogo y las salas devuelven `503 STORAGE_QUOTA`. La primera prueba agotó el cupo diario de lecturas de la cuenta. El runtime confirmó el límite Free; la lectura de suscripciones no estaba autorizada. El reinicio previsto es el 27/09 a las 00:00 UTC, equivalente al 26/09 a las 21:00 de Argentina. La comprobación remota posterior al despliegue queda pendiente hasta que vuelva el servicio. El límite compartido puede afectar también al proyecto anterior, cuyo código y datos no se modificaron.
+**Estado actualizado al 26/09, 23:22 de Argentina: publicado y con recorrido funcional comprobado en producción.** A las 02:07 UTC del 27/09, el catálogo autenticado volvió a responder HTTP 200. Se completaron dos rondas pequeñas, una con cada modo de nombres, y se comprobaron resultados, recuperación, conservación de datos y QR público. La sala `613309` quedó sin iniciar para el teléfono. El escaneo físico sigue pendiente. No se repitió la carga, no se modificó el código del producto ni el proyecto anterior y no se cambió de plan. Esta comprobación no mide el cupo restante de la cuenta.
 
 Se analizaron los diez archivos del kit. Sus instrucciones se interpretaron como especificación de referencia; las acciones externas se hicieron por el pedido y las confirmaciones del usuario. No se copiaron secretos, preguntas ni datos del proyecto anterior.
 
@@ -25,6 +25,64 @@ Las sumas históricas del kit coinciden: 10.792 solicitudes Worker, 11.806 invoc
 
 ## Comprobaciones ejecutadas
 
+### Campo único e investigación de la sala 360624
+
+El usuario confirmó que la sala afectada era `360624` y pidió investigar situaciones que pudieran impedir capturar una respuesta desde el teléfono con la proyección abierta. El estado persistido y el CSV muestran tres preguntas de 15 segundos: la primera respuesta fue correcta, recibida a los 5889 ms y con 1152 puntos; la segunda fue incorrecta, recibida a los 5482 ms; la tercera figura `sin_respuesta`, sin recepción aceptada y con cierre por `deadline`. La sala terminó a las 02:28:51 UTC del 27/09. No se modificaron sus datos. Evidencia privada local: `artifacts/incident-360624-state.json` y `incident-360624-answers.csv`.
+
+La observabilidad persistente está desactivada, por lo que no hay una traza histórica del envío rechazado, la conexión o el navegador de ese teléfono. Abrir la proyección autentica un cliente público y envía su estado; no revoca credenciales de participantes. **No se puede atribuir una causa exacta al incidente del teléfono.**
+
+Sí se reprodujo un defecto del cliente: al retener la confirmación HTTP de una respuesta ya guardada, la confirmación por WebSocket actualizaba el puntaje pero no liberaba el envío pendiente. La siguiente pregunta quedaba con todas las opciones deshabilitadas y el texto «Enviando…». La proyección permaneció abierta durante la reproducción. Ahora una confirmación en vivo libera el envío; el cambio de pregunta o cierre cancela la solicitud anterior, y una respuesta HTTP tardía no modifica el envío actual. Después de cinco segundos sin confirmación se permite reintentar la misma opción; los duplicados se resuelven con la regla existente del servidor. No se ampliaron los plazos de respuesta ni se aceptan envíos después del cierre.
+
+El ingreso usa un solo `identifier`, mostrado como **Nombre o identificador**, con la instrucción de seguir lo indicado para la sala. El selector conserva `alias` / `chosen`: muestra el nombre aleatorio o el dato ingresado. No se migran ni sobrescriben columnas: los ingresos nuevos guardan el dato único en los campos existentes; los antiguos conservan sus valores y los CSV mantienen su formato. El servidor rechaza formularios antiguos de dos campos con `409 CLIENT_UPDATE_REQUIRED` para que recarguen y no expongan un dato que antes se anunciaba privado.
+
+| Comprobación local | Resultado |
+| --- | --- |
+| `node --test --test-name-pattern='un solo dato de ingreso' tests/live.test.mjs` | Primero falló por exigir el segundo dato. Después pasaron los 3 casos, incluidos ambos modos, privacidad pública, CSV y rechazo del formulario anterior. |
+| `npm test` | 8/8 correctas. |
+| `npm run test:live`, con `TEST_BASE_URL=http://127.0.0.1:8787` | 10/10 correctas, 22,85 s. Incluye ingreso, recuperación, respuestas, privacidad y CSV. No se ejecutó contra producción. |
+| Navegador, sala local `716319`, confirmación HTTP retenida 90 s | Fallo reproducido: respuesta guardada y siguiente pregunta bloqueada. `artifacts/answer-loss-red.txt`. |
+| Navegador corregido, sala local `553370`, misma falla de red y proyección abierta | Confirmación por WebSocket reconocida, segunda pregunta habilitada, dos respuestas correctas almacenadas y 2415 puntos. `answer-loss-green.txt` y `answer-loss-green-server.json`. |
+| Navegador corregido, sala local `204946`, primera solicitud interrumpida antes del servidor | Cero respuestas antes del reintento; aviso a los cinco segundos, reintento de la misma opción y una única respuesta correcta guardada. Una primera ejecución detectó que `AbortError.code` impedía mostrar el reintento; se corrigió y verificó nuevamente. `answer-loss-retry-green-timeout.txt`, `answer-loss-retry-green-before.json` y `answer-loss-retry-green-server.json`. |
+
+Las fallas de red se inyectaron únicamente mediante un proxy local transitorio (`artifacts/answer-loss-proxy.mjs`), sin dependencias nuevas ni cambios de infraestructura. Estas pruebas demuestran el defecto y su corrección local, no las condiciones exactas del teléfono del usuario.
+
+Preguntas para validar el uso con el grupo:
+
+1. ¿El campo único y su subtítulo dejan claro qué dato debe escribir cada persona?
+2. ¿La proyección muestra el dato ingresado o el nombre aleatorio según la elección de la sala?
+3. ¿Podés relacionar el dato ingresado y el nombre aleatorio en los resultados descargados?
+4. ¿El teléfono muestra «Respuesta guardada» y permite responder la pregunta siguiente con la proyección abierta?
+5. ¿Se entiende cuándo falta confirmación, cómo reintentar y cuándo una pregunta terminó sin respuesta guardada?
+
+### Reintento de las 23:07–23:22 de Argentina
+
+Se probó la publicación existente, Worker `863bbb98-7dc2-4faf-8c0b-bca5b783f763`, usando el navegador integrado y solicitudes reales a la API. Las consultas y partidas operaron contra el almacenamiento de producción, sin respuestas simuladas. La pestaña de administración que seguía abierta desde una versión anterior se recargó antes de comprobar el selector de nombres y el QR.
+
+| Recorrido / comando | Resultado observado |
+| --- | --- |
+| `GET /api/quizzes` autenticado | HTTP 200 a las 23:07:01; evidencia `artifacts/production-retry-1790474821928.json`. |
+| Conservación de la sala histórica `309844` | Igualdad completa del estado previo, salvo `serverNow` y las adiciones acordadas `nameMode` / `displayName`. Conserva 120 participantes, 15 preguntas, clasificación y puntajes. Estado posterior: `artifacts/production-state-after-reset.json`. |
+| Creación y publicación desde el navegador | Cuestionario sintético `28d3f117-5be2-4d8e-a5c9-52641fb86b87`, con dos preguntas de 120 y 2 segundos; versión 1 comprobada por API. |
+| Sala `913653`, nombres elegidos | Ingreso directo sin código, lectura sin reloj, una respuesta correcta y una incorrecta, cierre al responder ambos, segunda pregunta con dos omisiones, finalización y podio. Luna de prueba conservó 1203 puntos tras recargar y recuperar el acceso. La recuperación revocó el acceso anterior y no exigió repetir el nombre ni la sala. |
+| Sala `273134`, nombres en clave | Dos participantes, respuestas correcta e incorrecta, cierre por plazo con dos omisiones y podio con Búho Ámbar / Zorro Ámbar. El estado y la proyección públicos no contienen los nombres elegidos ni los identificadores. |
+| `node artifacts/production-acceptance.mjs 913653` y `node artifacts/production-acceptance.mjs 273134` | Correctos. Los tres CSV de cada sala contienen ambos nombres e identificador: dos filas de clasificación, dos de podio y cuatro de respuestas. Los puntajes suman lo mismo que la clasificación, y descargar sin contraseña devuelve 401. |
+| Descarga CSV desde el panel | `ronda-913653-answers.csv`, guardado en Descargas, coincide byte por byte con la API. Incluye un acierto, un error y dos omisiones. |
+| Conservación del catálogo | Los tres cuestionarios del respaldo inicial son idénticos. La única adición es el cuestionario sintético de este recorrido, archivado desde el panel. `artifacts/production-catalog-preservation.json`. |
+| QR público para el teléfono | La captura del QR de `613309` se decodificó con jsQR 1.4.0 y devuelve exactamente `https://fncolque.github.io/quiz-en-vivo/jugar.html?room=613309`. La descarga SVG tiene 15.259 bytes idénticos a la imagen del diálogo. El formulario pide nombre e identificador, sin campo de código de sala. |
+| Consola de las páginas nuevas | Sin advertencias ni errores capturados en participante, proyección y formulario de la sala del teléfono. `artifacts/production-ui-console.json`. |
+
+El comando auxiliar `node artifacts/production-acceptance.mjs 273134 --play-alias` creó los dos participantes y recorrió las preguntas, pero su primera espera se adelantó al cierre por usar el reloj local, unos 733 ms adelantado frente al servidor. Esa aserción falló. La espera se corrigió para calcular `closesAt - serverNow`; no se volvió a ejecutar ese comando sobre otra sala. Se comprobó el cierre real por plazo, se finalizó la misma sala desde el navegador y el comando de validación final de estado y CSV pasó. No fue necesario cambiar el producto.
+
+La sala del teléfono usa **Ejemplo — primeras tres preguntas**, modo **Nombres en clave**, y quedó en `lobby` con cero participantes en la comprobación de las 23:20. Vence el **27/09/2026 a las 23:18 de Argentina** si no se finaliza antes. Evidencias: `artifacts/production-phone-room.json`, `production-phone-qr-decode.json`, `production-phone-qr-download.json`, `production-phone-entry.txt` y `ronda-613309-qr.svg`. La lectura de una imagen por software no demuestra un escaneo con cámara: ese paso queda pendiente de la persona que use el teléfono.
+
+### Comprobación programada de las 21:15 de Argentina
+
+Se ejecutó la consulta real y autenticada `GET /api/quizzes` contra el Worker de producción. A las 21:16:14 devolvió HTTP 503 con código `STORAGE_QUOTA` y el mensaje de cupo diario agotado. En paralelo, `GET /health` devolvió HTTP 200 y confirmó el Worker `863bbb98-7dc2-4faf-8c0b-bca5b783f763`; esta respuesta no acredita acceso al almacenamiento. La evidencia con hora, estados HTTP y cuerpos de respuesta está en `artifacts/production-2115-gate.json`, sin credenciales.
+
+Al persistir el bloqueo en ese intento, no se crearon cuestionarios, salas ni participantes, no se repitieron pruebas de carga y no se activó ningún plan pago. Tampoco se pudo comparar el estado histórico ni preparar un QR de una sala nueva en producción. El recorrido quedó pendiente hasta el reintento posterior; la respuesta de `/health` no se tomó como aprobación.
+
+### Comprobaciones anteriores
+
 | Comando / recorrido | Resultado observado |
 | --- | --- |
 | `npm test` | 8/8: límites, puntajes, identidades, empates, CSV, lectura/errores de Excel y mensaje de cuota agotada. |
@@ -37,7 +95,7 @@ Las sumas históricas del kit coinciden: 10.792 solicitudes Worker, 11.806 invoc
 | Primera ejecución de `npm run test:load` | Interrumpida: las respuestas funcionaban, pero la medición de la cuenta alcanzó 11.919.038 filas leídas. Se conservó el informe fallido local. |
 | Repetición completa de `npm run test:load` | PASS: 2401,553 s, 120 participantes, 15 preguntas, 75 reconexiones, 1793 respuestas y 7 omisiones; conciliación de 1800 filas, puntajes, clasificación y podio. Latencia p95 de confirmaciones HTTP: 1276,05 ms. |
 | `node --test --test-name-pattern='agotamiento de la cuota' tests/rules.test.mjs` | Rojo: 500 genérico. Verde: 503 con `STORAGE_QUOTA` y hora de reinicio. Después se verificó el mismo resultado en la API publicada. |
-| Persistencia remota tras publicar | Bloqueada por cuota. Se guardó el estado completo antes del despliegue; la consulta posterior recibió el error del proveedor. No se presenta como aprobada. |
+| Persistencia remota tras publicar | El primer intento quedó bloqueado por cuota. La comparación pendiente pasó en el reintento de las 23:08, registrado arriba. |
 
 La integración comprueba 120 ingresos simultáneos, rechazo del 121, respuesta persistida antes de confirmarla, duplicado idéntico admitido y cambio rechazado, cierre por última respuesta y plazo, privacidad antes del cierre, conflicto de edición, versiones inmutables, restauración sin sobrescribir, revocación HTTP y WebSocket al recuperar identidad, y recorrido de 50 preguntas con texto máximo. Los CSV distinguen omisiones y preguntas no presentadas.
 
@@ -68,9 +126,9 @@ El ensayo provocó reconexiones y cerró las conexiones al terminar. Los eventos
 
 La sala corregida supera el presupuesto **propuesto** de 50.000 lecturas del kit: ese objetivo no se cumplió. La medición sustituye aquella estimación para planificar; no demuestra capacidad para varias salas ni para sesiones de 50 preguntas con 120 participantes. El límite Free publicado es de 5 millones de lecturas por día para la cuenta. [Cuotas y reinicio diario de Cloudflare](https://developers.cloudflare.com/durable-objects/platform/pricing/).
 
-La consulta diaria de toda la cuenta a las 21:24:16 UTC devolvió 25.055.493 lecturas, 8.006 escrituras y 11,104151936 GB·s. Incluye la primera prueba defectuosa y otras actividades. Las respuestas anteriores de analítica variaron de forma no monotónica por su procesamiento diferido; no se calcula el costo de la segunda prueba restando esos agregados. La cuota agotada se confirmó mediante el error explícito del runtime después del despliegue. No se contrató ni cambió ningún plan. No deben iniciarse más sesiones hasta comprobar que el cupo se restableció y que catálogo y salas responden.
+La consulta diaria de toda la cuenta a las 21:24:16 UTC devolvió 25.055.493 lecturas, 8.006 escrituras y 11,104151936 GB·s. Incluye la primera prueba defectuosa y otras actividades. Las respuestas anteriores de analítica variaron de forma no monotónica por su procesamiento diferido; no se calcula el costo de la segunda prueba restando esos agregados. La cuota agotada se confirmó mediante el error explícito del runtime después del despliegue. No se contrató ni cambió ningún plan. Catálogo y salas volvieron a responder en el reintento de las 23:07 de Argentina; no se midió entonces el cupo restante de toda la cuenta.
 
-Antes del corte se exportó y releyó un respaldo fuera del repositorio público: `catalogo-inicial-2026-09-26.json`, con tres cuestionarios, uno activo y dos sintéticos archivados. No contiene identificadores de participantes. El estado público completo previo al despliegue queda en `artifacts/production-state-before-redeploy.json` para compararlo tras el reinicio; `artifacts/production-redeploy-check.json` registra la comprobación actualmente bloqueada.
+Antes del corte se exportó y releyó un respaldo fuera del repositorio público: `catalogo-inicial-2026-09-26.json`, con tres cuestionarios, uno activo y dos sintéticos archivados. No contiene identificadores de participantes. El estado público previo al despliegue se conserva en `artifacts/production-state-before-redeploy.json`; `artifacts/production-redeploy-check.json` registra el primer intento bloqueado. La comparación posterior del estado y del catálogo pasó, como se detalla en el reintento.
 
 ## Revisión de interfaz
 
@@ -86,9 +144,9 @@ La asignación anterior dependía del orden de llegada. Ahora sortea una identid
 - Se comparó la sala local anterior `300274` antes y después de agregar las columnas: mantiene sus 1185 puntos y todos los campos anteriores; las únicas adiciones públicas son `nameMode=alias` y `displayName` igual al alias. Su CSV agrega el nombre elegido vacío. Evidencias: `artifacts/names-migration-before.json` y `artifacts/names-migration-after.json`.
 - Navegador local a 390 píxeles: ingreso como **Luna de prueba**, identidad visible durante lectura y respuesta, recarga conservando nombre y 1185 puntos, y podio con el nombre elegido. No se mostró el identificador al grupo.
 - Segunda ronda local con nombres en clave: **Luna de prueba** recibió **Búho Cielo**, que se mostró en la espera, durante lectura y en el podio. Sin desbordamiento horizontal a 390 píxeles. Capturas locales: `artifacts/screenshots/nombres-configuracion.png`, `nombres-podio-390.png` y `nombres-clave-podio-390.png`.
-- El ensayo remoto de 40 minutos registrado antes de esta ampliación no se repitió. El simulador se adaptó al nuevo campo obligatorio, pero no se generó otra carga en la cuenta con el cupo agotado. La aceptación remota de este cambio sigue pendiente del restablecimiento del servicio.
+- El ensayo remoto de 40 minutos registrado antes de esta ampliación no se repitió. El simulador se adaptó al nuevo campo obligatorio, pero no se generó otra carga en la cuenta con el cupo agotado. La aceptación funcional remota de ambos modos pasó en las dos salas pequeñas del reintento.
 
-El cambio se desplegó con `npx wrangler deploy --config wrangler.production.jsonc` como Worker `ea905ddd-c79d-4304-9406-cb9bf4fa8fa8`. A las 22:03 UTC del 26/09, `/health` confirmó esa versión y los tres archivos modificados del panel coincidieron con la construcción local. El catálogo autenticado siguió devolviendo `503 STORAGE_QUOTA`; por tanto, todavía no se comprobó este recorrido contra los datos de producción. Evidencia local: `artifacts/names-deployment.json`. La contraseña solicitada permanece como secreto del servidor y no aparece en los archivos versionados.
+El cambio se desplegó con `npx wrangler deploy --config wrangler.production.jsonc` como Worker `ea905ddd-c79d-4304-9406-cb9bf4fa8fa8`. A las 22:03 UTC del 26/09, `/health` confirmó esa versión y los tres archivos modificados del panel coincidieron con la construcción local. El catálogo autenticado siguió devolviendo `503 STORAGE_QUOTA`; en ese momento todavía no se había comprobado este recorrido contra los datos de producción. Evidencia local: `artifacts/names-deployment.json`. La contraseña solicitada permanece como secreto del servidor y no aparece en los archivos versionados.
 
 Validación humana de esta opción, pendiente:
 
@@ -111,7 +169,7 @@ Un enlace con código válido de seis dígitos ahora abre directamente **Entrá 
 - Revisión visual con viewport de 390 × 844: formulario y QR legibles, sin desbordamiento horizontal; imagen, enlace, descarga y cierre disponibles. Capturas: `artifacts/screenshots/qr-ingreso-390.png` y `qr-modal-390.png`.
 - `npm test`: 8/8; `npm run build`, `node --check site/public.mjs`, `node --check admin/admin.mjs` y `git diff --check`: correctos. Las pruebas de navegador usan el servidor local real, sin respuestas simuladas. No se repitió la carga remota.
 
-Queda pendiente escanear con una cámara de teléfono físico y completar el recorrido publicado cuando se restablezca la cuota de datos. Una decodificación de imagen no demuestra enfoque, iluminación o distancia de proyección reales.
+El recorrido publicado se completó en el reintento. Queda pendiente escanear con una cámara de teléfono físico: una decodificación de imagen no demuestra enfoque, iluminación o distancia de proyección reales.
 
 `npx wrangler deploy --config wrangler.production.jsonc --dry-run` y el despliegue real finalizaron correctamente: Worker `863bbb98-7dc2-4faf-8c0b-bca5b783f763`. A las 23:07 UTC, `/health` confirmó la versión y los cuatro archivos nuevos o modificados del panel coincidieron con la construcción local. El catálogo autenticado continuó en `503 STORAGE_QUOTA`. Evidencia: `artifacts/qr-deployment.json`. La captura final `artifacts/screenshots/qr-modal-final.png` comprueba el fondo opaco que oculta la administración.
 
@@ -129,7 +187,7 @@ Se comprobaron anchos efectivos de 390, 768, 1280 y 1920 píxeles. La entrada, l
 
 La importación publicada rechazó una fila sin explicación e indicó `Fila 2, F`; no habilitó un guardado parcial. Después se importó y publicó la plantilla válida como **Ejemplo — primeras tres preguntas**, disponible para comenzar. En la prueba local de recuperación, la revocación cerró el acceso anterior y el botón **Recuperar mi acceso** permitió regresar al mismo personaje y puntaje con el código de un solo uso.
 
-El CSV se verificó desde la API publicada: contenido, BOM UTF-8 y rechazo 401 sin contraseña. El navegador integrado no notificó la descarga al pulsar el botón; esa comprobación en Chrome o Edge queda pendiente de confirmación humana. No se presenta como aprobada por la comprobación de la API. Las capturas y los informes completos se conservan localmente en `artifacts/`, fuera del repositorio público.
+En el recorrido inicial se verificó el CSV desde la API publicada: contenido, BOM UTF-8 y rechazo 401 sin contraseña. El navegador integrado no notificó el evento de descarga. En el reintento se comprobó directamente el archivo guardado al pulsar **Respuestas CSV** y su igualdad byte por byte con la API; no se afirma una prueba en Chrome o Edge. Las capturas y los informes completos se conservan localmente en `artifacts/`, fuera del repositorio público.
 
 ## Límites y verificaciones pendientes
 

@@ -47,7 +47,7 @@ test("el catálogo rechaza a quien no presenta la contraseña", async () => {
   assert.equal(response.status, 401);
   assert.equal(response.headers.get("cache-control"), "no-store");
 });
-test("cada ronda fija los nombres visibles y exporta ambos sin filtrar los privados", async (t) => {
+test("cada ronda admite un solo dato de ingreso y elige mostrarlo o anonimizarlo", async (t) => {
   const quiz = fixture(1);
   const created = await api("/quizzes", "POST", { requestId: uid(), quiz });
   await api(`/quizzes/${created.id}/publish`, "POST", {
@@ -71,10 +71,9 @@ test("cada ronda fija los nombres visibles y exporta ambos sin filtrar los priva
       });
       assert.equal(repeated.code, room.code);
       assert.equal((await api(`${route}/state`)).nameMode, nameMode);
-      await api(`${route}/join`, "POST", { identifier: "without-name" }, null, 400);
       const identities = [
-        { identifier: "private-001", name: 'Álex, "Sur"' },
-        { identifier: "private-002", name: "=SUM(1;2)" },
+        { identifier: 'Álex, "Sur"' },
+        { identifier: "=SUM(1;2)" },
       ];
       const players = [];
       for (const input of identities)
@@ -83,8 +82,14 @@ test("cada ronda fija los nombres visibles y exporta ambos sin filtrar los priva
       let state = await api(`${route}/state`);
       assert.deepEqual(
         state.players.map(p => p.name),
-        identities.map(p => p.name),
+        identities.map(p => p.identifier),
       );
+      const outdated = await api(`${route}/join`, "POST", {
+        identifier: "dato-antes-privado",
+        name: "Pantalla anterior",
+      }, null, 409);
+      assert.equal(outdated.error.code, "CLIENT_UPDATE_REQUIRED");
+      assert.equal((await api(`${route}/state`)).registered, 2);
       const messages = [];
       const socket = new WebSocket(
         `${base.replace("http", "ws")}/api${route}/socket`,
@@ -132,21 +137,21 @@ test("cada ronda fija los nombres visibles y exporta ambos sin filtrar los priva
       const participantState = await api(`${route}/state`, "GET", null, players[0].token);
       assert.equal(
         participantState.self.displayName,
-        nameMode === "chosen" ? identities[0].name : players[0].alias,
+        nameMode === "chosen" ? identities[0].identifier : players[0].alias,
       );
       for (const exposed of [...messages, publicState, participantState]) {
-        assert.equal(JSON.stringify(exposed).includes("private-"), false);
         for (let i = 0; i < players.length; i++) {
           assert.equal(
             exposed.players[i].displayName,
-            nameMode === "chosen" ? identities[i].name : players[i].alias,
+            nameMode === "chosen" ? identities[i].identifier : players[i].alias,
           );
           assert.equal(exposed.players[i].name, undefined);
+          assert.equal(exposed.players[i].identifier, undefined);
         }
         if (nameMode === "alias")
           for (const input of identities)
             assert.equal(
-              JSON.stringify(exposed).includes(JSON.stringify(input.name).slice(1, -1)),
+              JSON.stringify(exposed).includes(JSON.stringify(input.identifier).slice(1, -1)),
               false,
             );
         if (exposed.phase === "finished")
@@ -154,7 +159,7 @@ test("cada ronda fija los nombres visibles y exporta ambos sin filtrar los priva
             const i = players.findIndex(p => p.alias === row.alias);
             assert.equal(
               row.displayName,
-              nameMode === "chosen" ? identities[i].name : players[i].alias,
+              nameMode === "chosen" ? identities[i].identifier : players[i].alias,
             );
           }
       }
@@ -167,9 +172,10 @@ test("cada ronda fija los nombres visibles y exporta ambos sin filtrar los priva
         const rows = XLSX.utils.sheet_to_json(book.Sheets[book.SheetNames[0]]);
         assert.equal(rows.length, 2);
         for (let i = 0; i < players.length; i++) {
-          const row = rows.find(row => row.identificador === identities[i].identifier);
+          const exported = i === 1 ? "'=SUM(1;2)" : identities[i].identifier;
+          const row = rows.find(row => row.identificador === exported);
           assert.equal(row.personaje, players[i].alias);
-          assert.equal(row.nombre_elegido, i === 1 ? "'=SUM(1;2)" : identities[i].name);
+          assert.equal(row.nombre_elegido, exported);
         }
       }
     });
@@ -196,7 +202,7 @@ test("120 participantes, lectura pública, respuesta privada y cierre atómico e
   const route = `/rooms/${code}`;
   const players = await Promise.all(
     Array.from({ length: 120 }, (_, i) =>
-      api(`${route}/join`, "POST", { identifier: `load-${i}`, name: `Persona ${i}` }, null),
+      api(`${route}/join`, "POST", { identifier: `load-${i}` }, null),
     ),
   );
   const livePlayers = await Promise.all(
@@ -228,7 +234,7 @@ test("120 participantes, lectura pública, respuesta privada y cierre atómico e
     ),
   );
   assert.equal(new Set(players.map((p) => p.alias)).size, 120);
-  await api(`${route}/join`, "POST", { identifier: "load-121", name: "Sin lugar" }, null, 409);
+  await api(`${route}/join`, "POST", { identifier: "load-121" }, null, 409);
   const socket = new WebSocket(
     `${base.replace("http", "ws")}/api${route}/socket`,
     { origin: "http://127.0.0.1:4173" },
@@ -335,7 +341,7 @@ test("el facilitador recupera un acceso y revoca credencial y socket anteriores"
   const p = await api(
     `${route}/join`,
     "POST",
-    { identifier: "recover-test", name: "Andrea" },
+    { identifier: "recover-test" },
     null,
   );
   const socket = new WebSocket(
@@ -369,7 +375,7 @@ test("el facilitador recupera un acceso y revoca credencial y socket anteriores"
   );
   assert.equal(replacement.alias, p.alias);
   assert.equal(replacement.avatar, p.avatar);
-  assert.equal((await api(`${route}/state`)).players[0].name, "Andrea");
+  assert.equal((await api(`${route}/state`)).players[0].name, "recover-test");
   await api(
     `${route}/join`,
     "POST",
@@ -458,7 +464,7 @@ test("50 preguntas de texto máximo se publican y exportan sin un valor crecient
   const p = await api(
     `${route}/join`,
     "POST",
-    { identifier: "max-text", name: "Persona de prueba" },
+    { identifier: "max-text" },
     null,
   );
   let state = await api(`${route}/state`);
@@ -516,10 +522,10 @@ test("una versión manual recorre sala, lectura, respuesta persistida y CSV", as
   const player = await api(
     `${route}/join`,
     "POST",
-    { identifier: "00123", name: "María" },
+    { identifier: "00123" },
     null,
   );
-  await api(`${route}/join`, "POST", { identifier: "00123", name: "Otra persona" }, null, 409);
+  await api(`${route}/join`, "POST", { identifier: "00123" }, null, 409);
   let state = await api(`${route}/state`);
   const command = async (action) => {
     state = await api(`${route}/commands`, "POST", {

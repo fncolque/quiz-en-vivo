@@ -780,13 +780,13 @@ async function prepare(q) {
   const nameMode = el(
     "select",
     {},
-    el("option", { value: "alias" }, "Nombres en clave"),
-    el("option", { value: "chosen" }, "Nombres elegidos"),
+    el("option", { value: "alias" }, "Nombres aleatorios (anonimizar)"),
+    el("option", { value: "chosen" }, "Dato ingresado (nombre o identificador)"),
   );
   const nameSelection = field(
     "Mostrar participantes como",
     nameMode,
-    "Se mantiene durante toda la ronda. Los CSV siempre incluyen el nombre elegido y el nombre en clave.",
+    "Indicá al grupo qué debe escribir al entrar. Esta elección se mantiene durante la ronda; los CSV incluyen el dato ingresado y el nombre aleatorio.",
   );
   nameSelection.classList.add("session-names");
   let snapshot, times;
@@ -943,7 +943,7 @@ async function host(code) {
           src: `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`,
           alt: `QR para ingresar a la sala ${code}`,
         }),
-        el("p", {}, "El enlace abre esta sala y pide tu nombre e identificador."),
+        el("p", {}, "El enlace abre esta sala y pide un solo dato: nombre o identificador."),
         state.phase !== "lobby"
           ? el(
               "p",
@@ -1103,7 +1103,7 @@ async function host(code) {
         "select",
         { "aria-label": "Participante a recuperar" },
         state.players.map((p) =>
-          el("option", { value: p.id }, `${p.identifier} · ${p.name || "Sin nombre registrado"} · ${p.alias}`),
+          el("option", { value: p.id }, `${p.identifier} · ${p.alias}`),
         ),
       );
       privateArea.append(

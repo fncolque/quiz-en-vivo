@@ -55,7 +55,7 @@ export function identifier(value) {
       !/[\p{Cc}\p{Cf}\p{Cs}]/u.test(value),
     400,
     "INVALID_IDENTIFIER",
-    "El identificador admite de 1 a 64 caracteres visibles.",
+    "El nombre o identificador admite de 1 a 64 caracteres visibles.",
   );
   return { original: value, normalized: value.normalize("NFKC").trim() };
 }

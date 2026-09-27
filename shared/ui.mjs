@@ -30,9 +30,10 @@ export function button(label, action, kind = "") {
     label,
   );
 }
-export async function api(base, path, { method = "GET", body, token } = {}) {
+export async function api(base, path, { method = "GET", body, token, signal } = {}) {
   const response = await fetch(base + path, {
     method,
+    signal,
     cache: "no-store",
     headers: {
       ...(token ? { Authorization: `Bearer ${token}` } : {}),

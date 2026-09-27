@@ -152,7 +152,6 @@ try {
         "POST",
         {
           identifier: `synthetic-${String(i).padStart(3, "0")}`,
-          name: `Persona sintética ${i}`,
         },
         null,
       ),
@@ -162,7 +161,7 @@ try {
   await request(
     `${roomPath}/join`,
     "POST",
-    { identifier: "synthetic-121", name: "Sin lugar" },
+    { identifier: "synthetic-121" },
     null,
     409,
   );

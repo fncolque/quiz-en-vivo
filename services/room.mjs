@@ -19,7 +19,6 @@ import {
   csv,
   requestId,
   randomInt,
-  text,
 } from "./rules.mjs";
 
 export class QuizRoom extends DurableObject {
@@ -550,6 +549,12 @@ export class QuizRoom extends DurableObject {
       }
       if (action === "join" && request.method === "POST") {
         const data = await readJson(request, 1024);
+        requireThat(
+          data.name === undefined,
+          409,
+          "CLIENT_UPDATE_REQUIRED",
+          "Recargá esta página para usar el ingreso de un solo campo.",
+        );
         const input = identifier(data.identifier);
         const token = crypto.randomUUID() + crypto.randomUUID();
         const tokenHash = await digest(token);
@@ -591,13 +596,6 @@ export class QuizRoom extends DurableObject {
           await this.broadcast();
           return json({ token, alias: p.alias, avatar: p.avatar });
         }
-        const name = text(data.name, 64, "Nombre elegido");
-        requireThat(
-          !/[\p{Cc}\p{Cf}\p{Cs}]/u.test(name),
-          400,
-          "INVALID_NAME",
-          "El nombre elegido debe contener caracteres visibles en una sola línea.",
-        );
         const p = this.ctx.storage.transactionSync(() => {
           room = this.metadata();
           requireThat(
@@ -613,7 +611,7 @@ export class QuizRoom extends DurableObject {
             ),
             409,
             "IDENTIFIER_TAKEN",
-            "Este identificador ya está en la sala. Usá el navegador original o pedí recuperación.",
+            "Ese nombre o identificador ya está en la sala. Si ya ingresaste, recuperá tu acceso; si no, usá otro según las instrucciones de quien conduce.",
           );
           const assigned = this.rows("SELECT avatar FROM players");
           requireThat(
@@ -629,6 +627,7 @@ export class QuizRoom extends DurableObject {
             id: crypto.randomUUID(),
             ...identity(available[randomInt(available.length)]),
           };
+          // Keep historical names and CSV columns; new joins use one value in both.
           this.sql.exec(
             "INSERT INTO players (id,identifier,normalized,alias,avatar,token_hash,name) VALUES (?,?,?,?,?,?,?)",
             p.id,
@@ -637,7 +636,7 @@ export class QuizRoom extends DurableObject {
             p.alias,
             p.avatar,
             tokenHash,
-            name,
+            input.original,
           );
           room.revision++;
           this.save(room);
