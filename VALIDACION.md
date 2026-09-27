@@ -1,10 +1,10 @@
-# Construcción y comprobaciones — 26 de septiembre de 2026
+# Construcción y comprobaciones — 26 y 27 de septiembre de 2026
 
 ## Alcance y fuentes
 
 El pedido autorizado fue construir un proyecto nuevo, publicarlo en GitHub Pages y presentar alternativas visuales. El usuario confirmó la cuenta `fncolque`, los nombres `quiz-en-vivo` / `ronda-quiz-en-vivo`, el producto Ronda y la propuesta **A · Estudio**.
 
-**Estado actualizado al 26/09, 23:22 de Argentina: publicado y con recorrido funcional comprobado en producción.** A las 02:07 UTC del 27/09, el catálogo autenticado volvió a responder HTTP 200. Se completaron dos rondas pequeñas, una con cada modo de nombres, y se comprobaron resultados, recuperación, conservación de datos y QR público. La sala `613309` quedó sin iniciar para el teléfono. El escaneo físico sigue pendiente. No se repitió la carga, no se modificó el código del producto ni el proyecto anterior y no se cambió de plan. Esta comprobación no mide el cupo restante de la cuenta.
+**Estado actualizado al 27/09, 00:02 de Argentina: publicado el campo único y la corrección de confirmaciones pendientes, con comprobación pequeña en producción.** La investigación de `360624` encontró dos respuestas guardadas y una omisión, sin trazas históricas suficientes para atribuir una causa exacta al teléfono. Se reprodujo y corrigió localmente un bloqueo del cliente bajo pérdida de confirmación HTTP. Las nuevas salas sintéticas comprobaron ambos modos, guardado, recarga, proyección y CSV. Se conservaron el catálogo previo y los resultados; la sala `613309` sigue sin iniciar. Falta repetir el ensayo físico con esta versión. No se repitió la carga remota, no se modificó el proyecto anterior ni se cambió de plan. Esta comprobación no mide el cupo restante de la cuenta.
 
 Se analizaron los diez archivos del kit. Sus instrucciones se interpretaron como especificación de referencia; las acciones externas se hicieron por el pedido y las confirmaciones del usuario. No se copiaron secretos, preguntas ni datos del proyecto anterior.
 
@@ -45,6 +45,18 @@ El ingreso usa un solo `identifier`, mostrado como **Nombre o identificador**, c
 | Navegador corregido, sala local `204946`, primera solicitud interrumpida antes del servidor | Cero respuestas antes del reintento; aviso a los cinco segundos, reintento de la misma opción y una única respuesta correcta guardada. Una primera ejecución detectó que `AbortError.code` impedía mostrar el reintento; se corrigió y verificó nuevamente. `answer-loss-retry-green-timeout.txt`, `answer-loss-retry-green-before.json` y `answer-loss-retry-green-server.json`. |
 
 Las fallas de red se inyectaron únicamente mediante un proxy local transitorio (`artifacts/answer-loss-proxy.mjs`), sin dependencias nuevas ni cambios de infraestructura. Estas pruebas demuestran el defecto y su corrección local, no las condiciones exactas del teléfono del usuario.
+
+#### Publicación y comprobación real
+
+`npm run build`, `node --check site/public.mjs`, `node --check services/room.mjs`, `node --check shared/ui.mjs`, `git diff --check` y `npx wrangler deploy --config wrangler.production.jsonc --dry-run` pasaron. Se publicó el Worker `b5a8e7f6-a1be-4623-b2d3-520c19594beb` y el código `066c3c1`. [GitHub Pages terminó correctamente](https://github.com/fncolque/quiz-en-vivo/actions/runs/36289999974). Los archivos publicados de participante, configuración, panel y helper HTTP coincidieron byte por byte con la construcción de producción.
+
+- A las 02:57:46 UTC, el catálogo autenticado devolvió 200 y coincidió con el respaldo previo. Los estados de `360624`, `613309` y `913653` fueron idénticos salvo `serverNow`; el CSV de `360624` fue idéntico byte por byte. Evidencia: `artifacts/single-input-production-preservation.json` y estados antes/después.
+- Sala `764645`, dato ingresado visible: entrada con un solo dato desde el formulario publicado, dos respuestas correctas desde el navegador con proyección abierta, recarga conservando la primera, segunda pregunta habilitada y podio con 2444 puntos. Se capturaron formulario, confirmaciones y proyección en `artifacts/single-input-production-*.txt`.
+- Sala `383703`, nombres aleatorios: creación desde el selector publicado y recorrido HTTP con un participante sintético. La respuesta quedó guardada, el estado público y el del participante ocultaron el dato ingresado, y se finalizó tras la primera pregunta; la segunda quedó `no_presentada`.
+- `node artifacts/production-single-input-acceptance.mjs --play-alias`: correcto. Los tres CSV de ambas salas conservaron el dato ingresado y el nombre aleatorio; clasificación y podio con una fila, detalle con dos. Informe: `artifacts/single-input-production-acceptance.json`.
+- Sin errores ni advertencias capturados en las pestañas nuevas de participante y proyección. El cuestionario sintético propio se archivó; las salas finalizadas quedan sujetas a su retención normal. Los procesos y pestañas de inyección local se cerraron.
+
+El navegador integrado comprueba la versión real publicada, pero no sustituye un teléfono físico. No se inyectaron cortes ni se ejecutó `test:live` o carga contra producción. Los CSV históricos mantienen sus nombres e identificadores separados; las filas nuevas usan el campo único en ambas columnas.
 
 Preguntas para validar el uso con el grupo:
 
@@ -132,7 +144,9 @@ Antes del corte se exportó y releyó un respaldo fuera del repositorio público
 
 ## Revisión de interfaz
 
-### Ampliación: nombres por ronda
+### Implementación inicial: nombres por ronda
+
+Registro de la versión anterior al campo único. Sus dos campos de ingreso fueron reemplazados por el cambio descrito al principio de este documento; las comprobaciones siguientes corresponden a aquella versión.
 
 Se incorporó `nameMode` (`alias` o `chosen`) en la reserva y el estado de cada sala. El selector usa nombres en clave inicialmente y queda fijo al crear la ronda, también ante un reintento de creación con el mismo ID. El ingreso ahora pide `name` además de `identifier`; la recuperación conserva el nombre existente. El servidor calcula `displayName` para todas las vistas y omite `name` de los estados públicos y de participantes. Los CSV protegidos agregan `nombre_elegido` al final y mantienen `personaje`.
 
@@ -156,7 +170,9 @@ Validación humana de esta opción, pendiente:
 4. ¿Podés relacionar nombre elegido, nombre en clave e identificador en los tres CSV?
 5. ¿La recuperación conserva los dos nombres y el puntaje sin pedir que se cambien?
 
-### Ampliación: QR e ingreso directo
+### Implementación inicial: QR e ingreso directo
+
+Registro del primer despliegue de QR. El destino directo se conserva; el formulario publicado ahora pide un solo nombre o identificador.
 
 El panel incorpora **Mostrar QR de esta sala** y descarga SVG. Usa exactamente el enlace público de participantes, con `jugar.html?room=...`; se genera localmente con qrcode-generator 2.0.4, servido desde el propio panel y cargado solo al abrir el QR. El fondo del diálogo oculta el panel al proyectarlo. El código conserva fondo blanco, módulos negros y un margen de cuatro módulos; no contiene contraseñas, identificadores ni credenciales.
 

@@ -2,7 +2,7 @@
 
 Cuestionarios en vivo para pensar en compañía. Un catálogo compartido permite crear o importar preguntas, publicar versiones y conducir sesiones de hasta 120 participantes.
 
-**Estado al 26/09/2026, 23:22 de Argentina:** el catálogo y las salas volvieron a responder. Se completó el recorrido funcional en producción con dos participantes por sala: creación y publicación, ambos modos de nombres, respuestas y omisiones, recuperación de acceso, podio y CSV. El catálogo previo y los resultados históricos se conservaron. El QR público se generó, descargó y decodificó correctamente; queda pendiente el escaneo con un teléfono físico. Esta comprobación pequeña no mide el cupo restante de la cuenta ni sustituye el ensayo con la red y los dispositivos de una actividad.
+**Estado al 27/09/2026, 00:02 de Argentina:** publicado el ingreso con un único **Nombre o identificador** y la corrección de envíos que quedaban pendientes aunque el servidor ya hubiera guardado la respuesta. Se comprobaron ambos modos de nombres y los CSV en producción, además de dos respuestas desde el navegador con proyección abierta y recarga. La sala reportada `360624` y los resultados anteriores permanecen intactos. El recorrido completo y el QR ya tuvieron las comprobaciones descritas en [VALIDACION.md](VALIDACION.md); falta repetir el ensayo en el teléfono del usuario con esta versión. No hay registros suficientes para atribuir una causa exacta a su respuesta omitida. Estas pruebas pequeñas no miden el cupo restante ni sustituyen el ensayo con la red y los dispositivos de una actividad.
 
 - Sitio público: https://fncolque.github.io/quiz-en-vivo/
 - Creación y conducción: https://ronda-quiz-en-vivo.n-lisis-de--atos.workers.dev/
